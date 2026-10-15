@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY") or "fallback-secret"
+    SECRET_KEY = os.getenv("SECRET_KEY")
+    if not SECRET_KEY:
+        raise RuntimeError("SECRET_KEY must be set as an environment variable.")
     DEBUG = False
 
     JWT_TOKEN_LOCATION = ['cookies']  # <-- Tell Flask-JWT where to look

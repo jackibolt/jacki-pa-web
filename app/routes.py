@@ -347,7 +347,6 @@ def reset_password():
 @login_required
 def logout():
     refresh_token = request.cookies.get('refresh_token')
-    print(f"LOGOUT REFRESH TOKEN: {refresh_token}")
 
     if not refresh_token:
         return jsonify({'error': 'Refresh token is missing'}), 400
@@ -2074,7 +2073,6 @@ def check_meal_plan_scratch_status(meal_plan_id):
 def mark_meal_plan_added_to_grocery(meal_plan_id):
     """Mark a meal plan as added to grocery list by updating timestamp in API"""
     print(f"🔵 [DEBUG] mark_meal_plan_added_to_grocery called with meal_plan_id={meal_plan_id}")
-    print(f"🔵 [DEBUG] g.access_token={g.access_token[:20] if g.access_token else 'None'}...")
     
     headers = {'Authorization': f"Bearer {g.access_token}"}
     
@@ -2349,7 +2347,6 @@ def profile():
         trial = True if user_data['subscription']['billing_interval'] == 'trial' else False
         print(f"TRIAL: {trial}")
 
-        print(user_data)
     else:
         user_data = {}
         clear_and_flash("Failed to load user data.", "danger")
