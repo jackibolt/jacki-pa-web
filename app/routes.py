@@ -2178,3 +2178,89 @@ def delete_todo_item(todo_id):
         clear_and_flash("Could not delete the to-do.", "error")
     return redirect(url_for('routes.todos'))
 
+
+# ----------------- #
+## REMINDER ROUTES ##
+
+def _describe_reminder(r, today):
+    """Add display text and a group (overdue / soon / later) to a reminder from the API."""
+    due = datetime.strptime(r['next_due'], '%Y-%m-%d').date()
+    days = (due - today).days
+    if days < 0:
+        group, due_text = 'overdue', f"{-days} day{'s' if days != -1 else ''} overdue"
+    elif days <= 30:
+        group, due_text = 'soon', ('Today' if days == 0 else 'Tomorrow' if days == 1 else due.strftime('%a, %b %-d'))
+    else:
+        group, due_text = 'later', due.strftime('%a, %b %-d')
+    if r.get('interval_value'):
+        unit = r['interval_unit']
+        repeat = f"Every {unit[:-1]}" if r['interval_value'] == 1 else f"Every {r['interval_value']} {unit}"
+    else:
+        repeat = "One time"
+    return {**r, 'group': group, 'due_text': due_text, 'repeat_text': repeat}
+
+
+@routes.route('/reminders', methods=['GET'])
+@login_required
+def reminders():
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.get(f"{API_BASE_URL}/reminders", headers=headers)
+    items = []
+    if response.status_code == 200:
+        today = _today()
+        items = [_describe_reminder(r, today) for r in response.json().get('reminders', [])]
+    else:
+        clear_and_flash("Could not load your reminders.", "error")
+    groups = [
+        {'title': 'Overdue', 'key': 'overdue', 'items': [r for r in items if r['group'] == 'overdue']},
+        {'title': 'Due in the next 30 days', 'key': 'soon', 'items': [r for r in items if r['group'] == 'soon']},
+        {'title': 'Later', 'key': 'later', 'items': [r for r in items if r['group'] == 'later']},
+    ]
+    return render_template('reminders.html', groups=groups, any_reminders=bool(items),
+                           today=_today().isoformat(), random_subhead=random_subheader())
+
+
+@routes.route('/reminders/add', methods=['POST'])
+@login_required
+def add_reminder():
+    title = request.form.get('title', '').strip()
+    next_due = request.form.get('next_due', '')
+    unit = request.form.get('interval_unit', '')
+    payload = {'title': title, 'next_due': next_due,
+               'lead_days': int(request.form.get('lead_days') or 1)}
+    if unit and unit != 'once':
+        payload['interval_value'] = request.form.get('interval_value')
+        payload['interval_unit'] = unit
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.post(f"{API_BASE_URL}/reminders", json=payload, headers=headers)
+    if response.status_code != 201:
+        clear_and_flash(response.json().get('error', 'Could not add the reminder.'), "error")
+    return redirect(url_for('routes.reminders'))
+
+
+@routes.route('/reminders/<int:reminder_id>/done', methods=['POST'])
+@login_required
+def reminder_done(reminder_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.post(f"{API_BASE_URL}/reminders/{reminder_id}/done",
+                             json={'today': _today().isoformat()}, headers=headers)
+    if response.status_code == 200:
+        r = response.json()
+        if r.get('active'):
+            clear_and_flash(f"Done. Next time: {datetime.strptime(r['next_due'], '%Y-%m-%d').strftime('%b %-d, %Y')}.", "success")
+        else:
+            clear_and_flash("Done. That was a one-time reminder, so it's finished.", "success")
+    else:
+        clear_and_flash("Could not update the reminder.", "error")
+    return redirect(url_for('routes.reminders'))
+
+
+@routes.route('/reminders/<int:reminder_id>/delete', methods=['POST'])
+@login_required
+def delete_reminder_item(reminder_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.delete(f"{API_BASE_URL}/reminders/{reminder_id}", headers=headers)
+    if response.status_code != 200:
+        clear_and_flash("Could not delete the reminder.", "error")
+    return redirect(url_for('routes.reminders'))
+

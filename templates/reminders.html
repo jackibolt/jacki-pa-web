@@ -1,0 +1,78 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">PLAN</div>
+      <h1 class="page-title">Reminders</h1>
+      <div class="page-sub">Things that come back around. Mark one done and it schedules itself for next time.</div>
+    </div>
+  </div>
+
+  <form action="{{ url_for('routes.add_reminder') }}" method="POST"
+        style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 28px;">
+    <div style="flex: 1 1 280px; display: flex; flex-direction: column; gap: 4px;">
+      <label for="rem-title" style="font-size: 13px; color: #4a6556;">What</label>
+      <input id="rem-title" type="text" name="title" maxlength="200" required placeholder="Replace the filter in the vacuum"
+             style="padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="rem-due" style="font-size: 13px; color: #4a6556;">First due</label>
+      <input id="rem-due" type="date" name="next_due" required value="{{ today }}"
+             style="padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="rem-every" style="font-size: 13px; color: #4a6556;">Repeat every</label>
+      <input id="rem-every" type="number" name="interval_value" min="1" max="999" value="3"
+             style="width: 80px; padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="rem-unit" style="font-size: 13px; color: #4a6556;">Unit</label>
+      <select id="rem-unit" name="interval_unit" style="padding: 12px 10px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px; background: #fff;">
+        <option value="days">days</option>
+        <option value="weeks">weeks</option>
+        <option value="months" selected>months</option>
+        <option value="years">years</option>
+        <option value="once">Doesn't repeat</option>
+      </select>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="rem-lead" style="font-size: 13px; color: #4a6556;">Remind me</label>
+      <select id="rem-lead" name="lead_days" style="padding: 12px 10px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px; background: #fff;">
+        <option value="0">The day it's due</option>
+        <option value="1" selected>1 day before</option>
+        <option value="3">3 days before</option>
+        <option value="7">1 week before</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Add reminder</button>
+  </form>
+
+  {% if not any_reminders %}
+    <p style="color: #4a6556;">No reminders yet. Add one above.</p>
+  {% endif %}
+
+  {% for group in groups %}
+    {% if group['items'] %}
+    <h2 style="font-size: 18px; margin: 24px 0 4px; color: {{ '#b03a4e' if group['key'] == 'overdue' else '#1a3a2a' }};">{{ group['title'] }}</h2>
+    {% for r in group['items'] %}
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #e3eee7;">
+      <div style="flex: 1 1 240px; min-width: 0;">
+        <div style="font-size: 16px; font-weight: 500;">{{ r.title }}</div>
+        <div style="font-size: 13px; color: #4a6556;">{{ r.repeat_text }}</div>
+      </div>
+      <div style="font-size: 13px; font-weight: 500; color: {{ '#b03a4e' if r.group == 'overdue' else '#1a3a2a' }};">{{ r.due_text }}</div>
+      <form action="{{ url_for('routes.reminder_done', reminder_id=r.id) }}" method="POST" style="margin: 0;">
+        <button type="submit" class="btn btn-secondary" aria-label="Mark done: {{ r.title }}">Mark done</button>
+      </form>
+      <form action="{{ url_for('routes.delete_reminder_item', reminder_id=r.id) }}" method="POST" style="margin: 0;"
+            onsubmit="return confirm('Delete this reminder?');">
+        <button type="submit" class="btn btn-secondary" aria-label="Delete: {{ r.title }}">Delete</button>
+      </form>
+    </div>
+    {% endfor %}
+    {% endif %}
+  {% endfor %}
+</div>
+{% endblock %}
