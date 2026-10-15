@@ -2264,3 +2264,80 @@ def delete_reminder_item(reminder_id):
         clear_and_flash("Could not delete the reminder.", "error")
     return redirect(url_for('routes.reminders'))
 
+
+# ----------------- #
+## SCHEDULE ROUTES ##
+
+def _fmt_time(hhmm):
+    """'13:05' -> '1:05 PM'"""
+    return datetime.strptime(hhmm, '%H:%M').strftime('%-I:%M %p')
+
+
+@routes.route('/schedule', methods=['GET'])
+@login_required
+def schedule():
+    from datetime import timedelta
+    today = _today()
+    try:
+        start = datetime.strptime(request.args.get('start', ''), '%Y-%m-%d').date()
+    except ValueError:
+        start = today
+    end = start + timedelta(days=6)
+
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.get(f"{API_BASE_URL}/schedule",
+                            params={'start': start.isoformat(), 'end': end.isoformat()}, headers=headers)
+    items = []
+    if response.status_code == 200:
+        items = response.json().get('items', [])
+    else:
+        clear_and_flash("Could not load your schedule.", "error")
+
+    days = []
+    for n in range(7):
+        day = start + timedelta(days=n)
+        label = 'Today' if day == today else 'Tomorrow' if day == today + timedelta(days=1) else day.strftime('%A')
+        day_items = []
+        for i in (x for x in items if x['date'] == day.isoformat()):
+            when = 'All day'
+            if i.get('start_time'):
+                when = _fmt_time(i['start_time']) + (' – ' + _fmt_time(i['end_time']) if i.get('end_time') else '')
+            day_items.append({**i, 'when': when})
+        days.append({'label': label, 'date_text': day.strftime('%b %-d'), 'is_today': day == today, 'items': day_items})
+
+    return render_template('schedule.html', days=days, today=today.isoformat(),
+                           prev_start=(start - timedelta(days=7)).isoformat(),
+                           next_start=(start + timedelta(days=7)).isoformat(),
+                           range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
+                           show_today_link=(start != today), random_subhead=random_subheader())
+
+
+@routes.route('/events/add', methods=['POST'])
+@login_required
+def add_event():
+    payload = {
+        'title': request.form.get('title', '').strip(),
+        'event_date': request.form.get('event_date', ''),
+        'start_time': request.form.get('start_time') or None,
+        'end_time': request.form.get('end_time') or None,
+    }
+    unit = request.form.get('repeat_unit', '')
+    if unit and unit != 'once':
+        payload['repeat_value'] = request.form.get('repeat_value')
+        payload['repeat_unit'] = unit
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.post(f"{API_BASE_URL}/events", json=payload, headers=headers)
+    if response.status_code != 201:
+        clear_and_flash(response.json().get('error', 'Could not add the event.'), "error")
+    return redirect(url_for('routes.schedule'))
+
+
+@routes.route('/events/<int:event_id>/delete', methods=['POST'])
+@login_required
+def delete_event_item(event_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.delete(f"{API_BASE_URL}/events/{event_id}", headers=headers)
+    if response.status_code != 200:
+        clear_and_flash("Could not delete the event.", "error")
+    return redirect(url_for('routes.schedule'))
+
