@@ -1,0 +1,67 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">PLAN</div>
+      <h1 class="page-title">To-dos</h1>
+    </div>
+  </div>
+
+  <form action="{{ url_for('routes.add_todo') }}" method="POST" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px;">
+    <label for="todo-title" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">New to-do</label>
+    <input id="todo-title" type="text" name="title" maxlength="200" placeholder="Add a to-do…" required
+           style="flex: 1 1 260px; padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    <label for="todo-due" style="position: absolute; width: 1px; height: 1px; overflow: hidden;">Due date (optional)</label>
+    <input id="todo-due" type="date" name="due_date" style="padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+
+  {% if open_todos %}
+  <div style="display: flex; flex-direction: column;">
+    {% for todo in open_todos %}
+    <div style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #e3eee7;">
+      <form action="{{ url_for('routes.toggle_todo', todo_id=todo.id) }}" method="POST" style="margin: 0;">
+        <input type="hidden" name="done" value="true">
+        <button type="submit" aria-label="Mark done: {{ todo.title }}"
+                style="width: 26px; height: 26px; border: 2px solid #8fae9c; border-radius: 8px; background: #fff; cursor: pointer;"></button>
+      </form>
+      <div style="flex: 1; min-width: 0;">
+        <div style="font-size: 16px; font-weight: 500;">{{ todo.title }}</div>
+        {% if todo.due_date %}
+          <div style="font-size: 13px; color: {{ '#b03a4e' if todo.due_date < today else '#4a6556' }};">
+            {% if todo.due_date < today %}Overdue · {% elif todo.due_date == today %}Due today · {% else %}Due {% endif %}{{ todo.due_date }}
+          </div>
+        {% endif %}
+      </div>
+      <form action="{{ url_for('routes.delete_todo_item', todo_id=todo.id) }}" method="POST" style="margin: 0;"
+            onsubmit="return confirm('Delete this to-do?');">
+        <button type="submit" aria-label="Delete: {{ todo.title }}" class="btn btn-secondary">Delete</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color: #4a6556;">Nothing to do. Add something above.</p>
+  {% endif %}
+
+  {% if done_todos %}
+  <details style="margin-top: 28px;">
+    <summary style="cursor: pointer; font-weight: 500;">Done ({{ done_todos|length }})</summary>
+    <div style="display: flex; flex-direction: column; margin-top: 8px;">
+      {% for todo in done_todos %}
+      <div style="display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e3eee7;">
+        <form action="{{ url_for('routes.toggle_todo', todo_id=todo.id) }}" method="POST" style="margin: 0;">
+          <input type="hidden" name="done" value="false">
+          <button type="submit" aria-label="Mark not done: {{ todo.title }}"
+                  style="width: 26px; height: 26px; border: 2px solid #3d7a57; border-radius: 8px; background: #3d7a57; color: #fff; cursor: pointer;">✓</button>
+        </form>
+        <div style="flex: 1; text-decoration: line-through; color: #5f7567;">{{ todo.title }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endblock %}

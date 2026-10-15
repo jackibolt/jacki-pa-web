@@ -9,6 +9,7 @@ import json, requests, os, random, threading
 import time, jwt, re, pprint
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from functools import wraps
 from markupsafe import Markup
 from flask_login import login_user, UserMixin
@@ -2120,5 +2121,60 @@ def profile():
                             api_base_url=API_BASE_URL)
 
 
+# ----------------- #
+## TO-DO ROUTES ##
 
+def _today():
+    """Today's date in the owner's timezone (Heroku runs in UTC)."""
+    return datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).date()
+
+
+@routes.route('/todos', methods=['GET'])
+@login_required
+def todos():
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    open_resp = requests.get(f"{API_BASE_URL}/todos", params={'status': 'open'}, headers=headers)
+    done_resp = requests.get(f"{API_BASE_URL}/todos", params={'status': 'done'}, headers=headers)
+    if open_resp.status_code != 200 or done_resp.status_code != 200:
+        clear_and_flash("Could not load your to-dos.", "error")
+    open_todos = open_resp.json().get('todos', []) if open_resp.status_code == 200 else []
+    done_todos = done_resp.json().get('todos', [])[:20] if done_resp.status_code == 200 else []
+    return render_template('todos.html', open_todos=open_todos, done_todos=done_todos,
+                           today=_today().isoformat(), random_subhead=random_subheader())
+
+
+@routes.route('/todos/add', methods=['POST'])
+@login_required
+def add_todo():
+    title = request.form.get('title', '').strip()
+    if not title:
+        clear_and_flash("Give the to-do a title.", "error")
+        return redirect(url_for('routes.todos'))
+    payload = {'title': title, 'due_date': request.form.get('due_date') or None}
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.post(f"{API_BASE_URL}/todos", json=payload, headers=headers)
+    if response.status_code != 201:
+        clear_and_flash(response.json().get('error', 'Could not add the to-do.'), "error")
+    return redirect(url_for('routes.todos'))
+
+
+@routes.route('/todos/<int:todo_id>/toggle', methods=['POST'])
+@login_required
+def toggle_todo(todo_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    done = request.form.get('done') == 'true'
+    response = requests.patch(f"{API_BASE_URL}/todos/{todo_id}", json={'done': done}, headers=headers)
+    if response.status_code != 200:
+        clear_and_flash("Could not update the to-do.", "error")
+    return redirect(url_for('routes.todos'))
+
+
+@routes.route('/todos/<int:todo_id>/delete', methods=['POST'])
+@login_required
+def delete_todo_item(todo_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.delete(f"{API_BASE_URL}/todos/{todo_id}", headers=headers)
+    if response.status_code != 200:
+        clear_and_flash("Could not delete the to-do.", "error")
+    return redirect(url_for('routes.todos'))
 
