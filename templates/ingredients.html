@@ -1,0 +1,219 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="ingredients-page">
+    <h1>Your Ingredients</h1>
+
+    <div class="filters" id="filtersContainer">
+        <div class="filters-inputs">
+            <input type="text" id="ingredientSearch" placeholder="🔍 Search ingredients..." />
+
+            <select id="categoryFilter" name="category_name" required>
+                <option value="">Select a category</option>
+                {% for cat in categories %}
+                    <option value="{{ cat.name }}">{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="filters-buttons">
+            <button id="resetFiltersBtn" class="btn btn-secondary reset-filters-btn" type="button">Reset Filters</button>
+            <button id="addInlineIngredientBtn" class="btn btn-secondary add-ingred-btn">+ Add Ingredient</button>
+        </div>
+    </div>
+
+    <div id="inlineIngredientFormContainer"></div>
+    <script type="text/template" id="categoryOptionsTemplate">
+        {% for cat in categories %}
+            <option value="{{ cat.name }}">{{ cat.name }}</option>
+        {% endfor %}
+    </script>
+    {% if ingredients %}
+        {% for ing in ingredients %}
+            <div class="ingredient-box visible" data-name="{{ ing.name | lower }}" data-category="{{ ing.category_name }}">
+                <div class="ingredient-info">
+                    <h3>{{ ing.name }}</h3>
+                    <div style="text-align: left"><small><strong>Category:</strong> {{ ing.category_name }}</small></div>
+                </div>
+                <div class="ingredient-actions">
+                    {% if ing.is_user_ingredient %}
+                        <button type="button" class="edit-btn edit-ingred-btn" data-id="{{ ing.id }}" data-name="{{ ing.name }}" data-category="{{ ing.category_name }}">Edit</button>
+                        <form action="{{ url_for('routes.delete_ingredient', ingredient_id=ing.id) }}" method="post" style="display: inline;">
+                            <input type="hidden" name="_method" value="DELETE">
+                            <button type="submit" class="delete-btn" onclick="return confirm('Delete this ingredient?')">Delete</button>
+                        </form>
+                    {% else %}
+                        <span title="Default ingredient" class="lock-icon">🔒</span>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+        <div id="paginationControls" class="pagination-controls"></div>
+    {% else %}
+        <p>No ingredients found. Add one to get started!</p>
+    {% endif %}
+</div>
+
+<script>
+    let ingredientsPerPage = 15;
+    let currentPage = 1;
+
+    function applyFilters() {
+        const searchValue = document.getElementById('ingredientSearch').value.toLowerCase();
+        const categoryValue = document.getElementById('categoryFilter').value.toLowerCase();
+
+        const ingredients = document.querySelectorAll('.ingredient-box');
+        ingredients.forEach(el => {
+            const name = el.dataset.name;
+            const category = el.dataset.category;
+            const matches = (!searchValue || name.includes(searchValue)) &&
+                            (!categoryValue || category.toLowerCase() === categoryValue);
+            el.classList.toggle('visible', matches);
+        });
+
+        showPage(1);
+    }
+
+    function getVisibleIngredients() {
+        return Array.from(document.querySelectorAll('.ingredient-box.visible'));
+    }
+
+    function showPage(page) {
+        const visibleIngredients = getVisibleIngredients();
+        const totalPages = Math.ceil(visibleIngredients.length / ingredientsPerPage);
+        currentPage = Math.max(1, Math.min(page, totalPages));
+
+        document.querySelectorAll('.ingredient-box').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        const start = (currentPage - 1) * ingredientsPerPage;
+        const end = currentPage * ingredientsPerPage;
+        visibleIngredients.slice(start, end).forEach(el => {
+            el.style.display = 'flex';
+        });
+
+        renderPaginationControls(totalPages);
+    }
+
+    function renderPaginationControls(totalPages) {
+        const container = document.getElementById('paginationControls');
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.textContent = i;
+            btn.className = 'page-btn' + (i === currentPage ? ' active' : '');
+            btn.addEventListener('click', () => showPage(i));
+            container.appendChild(btn);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        applyFilters();
+
+        document.getElementById('ingredientSearch').addEventListener('input', applyFilters);
+        document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+            document.getElementById('ingredientSearch').value = '';
+            document.getElementById('categoryFilter').value = '';
+            applyFilters();
+        });
+
+        document.getElementById('addInlineIngredientBtn').addEventListener('click', function () {
+            const container = document.getElementById('inlineIngredientFormContainer');
+
+            if (container.querySelector('form')) return;
+
+            // Hide filters when showing form
+            document.getElementById('filtersContainer').style.display = 'none';
+
+            const formHtml = `
+                <form id="inlineIngredientForm" method="POST" action="{{ url_for('routes.new_ingredient') }}" class="ingredient-box inline-form-box">
+                    <div class="ingredient-info">
+                        <input type="text" name="name" placeholder="Ingredient Name *" required />
+                        <select name="category_name" required>
+                            <option value="">Select category</option>
+                            {% for cat in categories %}
+                                <option value="{{ cat.name }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="ingredient-actions">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" id="cancelInlineFormBtn" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            `;
+            container.innerHTML = formHtml;
+
+            document.getElementById('cancelInlineFormBtn').addEventListener('click', () => {
+                container.innerHTML = '';
+                document.getElementById('filtersContainer').style.display = ''; // Show filters again
+
+            });
+        });
+    });
+
+    document.addEventListener('click', function (e) {
+    if (e.target && e.target.classList.contains('edit-ingred-btn')) {
+        console.log('edit button clicked');
+        const btn = e.target;
+        const box = btn.closest('.ingredient-box');
+
+        const id = btn.dataset.id;
+        const name = btn.dataset.name;
+        const category = btn.dataset.category;
+
+        const categoryOptionsHtml = document.getElementById('categoryOptionsTemplate').innerHTML;
+        const updatedCategoryOptions = categoryOptionsHtml.replace(
+            `value="${category}"`,
+            `value="${category}" selected`
+        );
+
+        // Log to verify this section is reached
+        console.log('Making form');
+
+        // Create the form dynamically instead of using innerHTML
+        const formElement = document.createElement('form');
+        formElement.method = 'POST';
+        formElement.action = `/ingredients/${id}/edit`;
+        formElement.classList.add('ingredient-box', 'inline-form-box');
+        formElement.id = 'inlineIngredientFormContainer';
+
+        // Create a hidden input field to simulate a PUT request
+        const hiddenMethodInput = document.createElement('input');
+        hiddenMethodInput.type = 'hidden';
+        hiddenMethodInput.name = '_method';
+        hiddenMethodInput.value = 'PUT'; // Simulate the PUT request
+
+        // Set the inner HTML or use appendChild for each element if preferred
+        formElement.innerHTML = `
+            <div class="ingredient-info">
+                <input type="text" name="name" value="${name}" required />
+                <select name="category_name" required>
+                    ${updatedCategoryOptions}
+                </select>
+            </div>
+            <div class="ingredient-actions">
+                <button type="submit" class="btn btn-primary">Update</button>
+                <button type="button" class="btn btn-secondary cancel-edit-btn">Cancel</button>
+            </div>
+        `;
+
+        // Clear existing content in the box if any
+        box.innerHTML = ''; // This clears everything, including previous forms
+        box.appendChild(formElement); // Append the new form
+
+        // Rebind the cancel button event after form is inserted
+        box.querySelector('.cancel-edit-btn').addEventListener('click', () => {
+            location.reload(); // Simple revert; optional: re-render manually
+        });
+    }
+});
+
+</script>
+{% endblock %}

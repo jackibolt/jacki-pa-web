@@ -1,0 +1,386 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="meal-plan-result-wrapper">
+    {% set plan_meal_ids = meal_plan.meals | map(attribute='id') | list %}
+    
+    <div class="page">
+        <!-- Progress Indicator -->
+        <div class="progress">
+            <div class="progress-step done">
+                <div class="progress-dot">✓</div>
+                <span class="progress-label">Create</span>
+            </div>
+            <div class="progress-line done"></div>
+            <div class="progress-step active">
+                <div class="progress-dot">2</div>
+                <span class="progress-label">Edit meals</span>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step upcoming">
+                <div class="progress-dot">3</div>
+                <span class="progress-label">Add sides</span>
+            </div>
+            <div class="progress-line"></div>
+            <div class="progress-step upcoming">
+                <div class="progress-dot">4</div>
+                <span class="progress-label">Get your plan</span>
+            </div>
+        </div>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <div>
+                <div class="page-eyebrow">Editing plan</div>
+                <h1 class="page-title">{{ meal_plan.meal_plan_name }}</h1>
+                <div class="page-sub">Happy with these? Head straight to the next step. Or flag any you'd like swapped — optionally search for a specific replacement — then update them all at once.
+                    {% if help_text != 'none' %}
+                        <br><br>
+                        {% if help_text == 'repeat' %}
+                            Your meals list doesn't have enough options, so some meals are repeated. Visit your <a href="{{ url_for('routes.profile') }}">Profile</a> to change this.
+                        {% elif help_text == 'random' %}
+                            Your meals list doesn't have enough options, so some random meals were added. Visit your <a href="{{ url_for('routes.profile') }}">Profile</a> to change this.
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Meals List -->
+        <form id="replaceForm" method="post" action="{{ url_for('routes.update_meal_plan', meal_plan_id=meal_plan.meal_plan_id) }}">
+            <input type="hidden" name="meals_quantity" value="{{ meal_plan.meals | length }}">
+            <input type="hidden" name="meal_category" value="{{ meal_plan.meal_plan_categories[0] if meal_plan.meal_plan_categories else '' }}">
+            <input type="hidden" name="meal_ids_to_remove" id="meal_ids_input">
+            <input type="hidden" name="meal_ids_to_add" id="meal_ids_to_add_input">
+            <input type="hidden" name="meal_tags" id="meal_tags" value="{{ meal_plan.meal_plan_tags | join(',') }}">
+
+            {% if meal_plan.meals %}
+                <div class="meals-list">
+                    {% for meal in meal_plan.meals %}
+                        <div class="meal-row" data-meal-id="{{ meal.id }}" style="animation-delay:{{ loop.index0 * 0.05 }}s">
+                            <div class="meal-row-main">
+                                <button type="button" class="flag-btn" title="Replace this meal" onclick="toggleFlag(this)">✕</button>
+                                
+                                <div class="meal-info">
+                                    <div class="meal-name">{{ meal.name }}</div>
+                                    <div class="meal-tags">
+                                        {% if meal.cuisine %}
+                                            <span class="meal-tag tag-cuisine">{{ meal.cuisine }}</span>
+                                        {% endif %}
+                                        {% if meal.categories %}
+                                            {% for cat in meal.categories %}
+                                                <span class="meal-tag tag-category">{{ cat }}</span>
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <span class="meal-fav" onclick="toggleStar(this, {{ meal.id }}, {{ 'true' if meal.is_favorite else 'false' }})">
+                                    {% if meal.is_favorite %}
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                                    {% else %}
+                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                                    {% endif %}
+                                </span>
+                            </div>
+
+                            <!-- Replacement Panel -->
+                            <div class="replace-panel">
+                                <div class="replace-hint">Replace with… <span class="replace-hint-or">or leave blank and we'll pick randomly</span></div>
+                                
+                                <div class="replace-chosen">
+                                    <span class="replace-chosen-name"></span>
+                                    <button type="button" class="replace-chosen-clear" title="Clear" onclick="clearChosen(this)">✕</button>
+                                </div>
+                                
+                                <div class="replace-search-wrap">
+                                    <span class="replace-search-icon">🔍</span>
+                                    <input type="text" class="replace-search-input" placeholder="Search a specific meal…" oninput="filterReplace(this)">
+                                </div>
+                                
+                                <div class="replace-results"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="text-align: center; color: var(--text-light); padding: 40px 20px;">No meals found in this plan.</p>
+            {% endif %}
+        </form>
+
+        <!-- Action Bar (inline, not fixed) -->
+        <div class="action-bar" id="bottomBar">
+            <button class="btn-next state-default" onclick="window.location.href='{{ url_for('routes.add_side_dishes_page', meal_plan_id=meal_plan.meal_plan_id) }}'">
+                <div><div>Add Side Dishes</div><div class="btn-next-sub">Next step</div></div>
+                <span class="btn-next-arrow">→</span>
+            </button>
+            <div class="state-replacing">
+                <button type="button" class="btn-replace-all" onclick="replaceAll()">
+                    <div><div id="replaceBtnTitle">Replace 0 meals</div><div class="btn-replace-all-sub" id="replaceBtnSub">Dinnr picks randomly</div></div>
+                    <span class="btn-replace-all-icon" id="replaceBtnIcon">🎲</span>
+                </button>
+                <button type="button" class="btn-cancel-replace" onclick="clearAllFlags()">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    console.log('===== MEAL PLAN RESULT PAGE SCRIPT STARTING =====');
+    
+    // Get all meals data for replacement
+    const allMealsFull = [
+        {% for meal in meals %}
+            {
+                id: {{ meal.id }},
+                name: "{{ meal.name }}",
+                cuisine: "{{ meal.cuisine or '' }}",
+                categories: {{ meal.categories | tojson }}
+            }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    console.log('[INIT] allMealsFull count:', allMealsFull.length);
+    console.log('[INIT] Sample meals (ids, names, cats):', allMealsFull.slice(0, 5).map(m => ({ id: m.id, name: m.name, categories: m.categories })));
+    
+    // Extract categories from the meals in the meal plan
+    const planMealsData = [
+        {% for meal in meal_plan.meals %}
+            {
+                id: {{ meal.id }},
+                categories: {{ meal.categories | tojson }}
+            }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    console.log('[CRITICAL START] planMealsData:', planMealsData);
+    console.log('[CRITICAL START] Number of meals in plan:', planMealsData.length);
+    
+    // Get unique categories from plan meals
+    const planCategories = [...new Set(planMealsData.flatMap(m => m.categories || []))];
+    
+    console.log('[MEAL FILTER DEBUG] planMealsData:', planMealsData);
+    console.log('[MEAL FILTER DEBUG] planCategories:', planCategories);
+    console.log('[MEAL FILTER DEBUG] allMealsFull count:', allMealsFull.length);
+    
+    // Filter meals to only show those matching the meal plan's categories
+    const allMeals = allMealsFull.filter(meal => {
+        // If no categories extracted from plan, show all meals
+        if (!planCategories || planCategories.length === 0) {
+            return true;
+        }
+        // Check if meal has any of the plan's categories
+        const hasCategory = meal.categories && meal.categories.some(cat => 
+            planCategories.map(c => c.toLowerCase()).includes(cat.toLowerCase())
+        );
+        if (!hasCategory && meal.id < 50) {
+            console.log(`[MEAL FILTER] Filtering OUT meal: ${meal.name} (cats: ${meal.categories})`);
+        }
+        return hasCategory;
+    });
+    
+    console.log('[MEAL FILTER DEBUG] allMeals (after filter) count:', allMeals.length);
+    if (allMeals.length > 0) {
+        console.log('[MEAL FILTER DEBUG] filtered meals sample:', allMeals.slice(0, 10).map(m => m.name + ' [' + (m.categories || []).join(', ') + ']'));
+    }
+
+    function getFlagged() {
+        return [...document.querySelectorAll('.meal-row.flagged')];
+    }
+
+    function updateBar() {
+        const flagged = getFlagged();
+        const bar = document.getElementById('bottomBar');
+        if (!flagged.length) {
+            bar.classList.remove('has-flags');
+            return;
+        }
+        bar.classList.add('has-flags');
+
+        const chosen = flagged.filter(r => r.dataset.chosenName).length;
+        const random = flagged.length - chosen;
+
+        document.getElementById('replaceBtnTitle').textContent =
+            `Replace ${flagged.length} meal${flagged.length > 1 ? 's' : ''}`;
+
+        if (chosen === flagged.length) {
+            document.getElementById('replaceBtnSub').textContent = 'All replacements chosen';
+            document.getElementById('replaceBtnIcon').textContent = '✓';
+        } else if (random === flagged.length) {
+            document.getElementById('replaceBtnSub').textContent = `Dinnr picks all ${flagged.length} randomly`;
+            document.getElementById('replaceBtnIcon').textContent = '🎲';
+        } else {
+            document.getElementById('replaceBtnSub').textContent = `${chosen} chosen · ${random} picked randomly`;
+            document.getElementById('replaceBtnIcon').textContent = '🎲';
+        }
+    }
+
+    function toggleFlag(btn) {
+        const row = btn.closest('.meal-row');
+        const wasFlagged = row.classList.contains('flagged');
+        row.classList.toggle('flagged');
+        if (wasFlagged) resetRow(row);
+        updateBar();
+    }
+
+    function resetRow(row) {
+        delete row.dataset.chosenMealId;
+        delete row.dataset.chosenName;
+        delete row.dataset.chosenCuisine;
+        delete row.dataset.chosenCategory;
+        row.querySelector('.replace-chosen').classList.remove('visible');
+        row.querySelector('.replace-chosen-name').textContent = '';
+        row.querySelector('.replace-search-input').value = '';
+        row.querySelector('.replace-results').innerHTML = '';
+    }
+
+    function filterReplace(input) {
+        const q = input.value.trim().toLowerCase();
+        const resultsEl = input.closest('.replace-panel').querySelector('.replace-results');
+
+        if (!q) { resultsEl.innerHTML = ''; return; }
+
+        const matches = allMeals.filter(m => m.name.toLowerCase().includes(q));
+
+        if (!matches.length) {
+            resultsEl.innerHTML = '<div style="padding:8px 10px;font-size:13px;color:var(--text-light)">No meals found</div>';
+            return;
+        }
+
+        resultsEl.innerHTML = matches.map(m =>
+            `<div class="replace-result" onclick="chooseReplacement(this,${m.id},'${m.name.replace(/'/g, "\\'")}','${m.cuisine}','${m.categories.join(', ')}')">
+                <div>
+                    <div class="replace-result-name">${m.name}</div>
+                    <div class="replace-result-meta">${m.cuisine}</div>
+                </div>
+                <span class="replace-result-pick">Pick →</span>
+            </div>`
+        ).join('');
+    }
+
+    function chooseReplacement(el, mealId, name, cuisine, category) {
+        const row = el.closest('.meal-row');
+        row.dataset.chosenMealId = mealId;
+        row.dataset.chosenName = name;
+        row.dataset.chosenCuisine = cuisine;
+        row.dataset.chosenCategory = category;
+        row.querySelector('.replace-chosen-name').textContent = `${name} · ${cuisine}`;
+        row.querySelector('.replace-chosen').classList.add('visible');
+        row.querySelector('.replace-search-input').value = '';
+        row.querySelector('.replace-results').innerHTML = '';
+        updateBar();
+    }
+
+    function clearChosen(btn) {
+        const row = btn.closest('.meal-row');
+        delete row.dataset.chosenMealId;
+        delete row.dataset.chosenName;
+        row.querySelector('.replace-chosen').classList.remove('visible');
+        row.querySelector('.replace-chosen-name').textContent = '';
+        updateBar();
+    }
+
+    function replaceAll() {
+        const flagged = getFlagged();
+        const mealIdsToRemove = [];
+        const mealIdsToAdd = [];
+        
+        console.log('[MEAL FILTER DEBUG] allMeals.length:', allMeals.length);
+        console.log('[MEAL FILTER DEBUG] planCategories:', planCategories);
+        console.log('[MEAL FILTER DEBUG] Sample allMeals (first 5):', allMeals.slice(0, 5).map(m => ({ id: m.id, name: m.name, categories: m.categories })));
+
+        flagged.forEach(row => {
+            const nameEl = row.querySelector('.meal-name');
+            const tags = row.querySelectorAll('.meal-row-main .meal-tag');
+            const oldMealId = parseInt(row.dataset.mealId);
+            
+            console.log('DEBUG: oldMealId =', oldMealId, 'row.dataset =', row.dataset);
+            
+            let meal;
+            const isRandomReplacement = !row.dataset.chosenMealId;
+            
+            if (row.dataset.chosenMealId) {
+                // User explicitly chose a specific meal
+                const chosenId = parseInt(row.dataset.chosenMealId);
+                meal = allMeals.find(m => m.id === chosenId);
+                mealIdsToRemove.push(oldMealId);
+                mealIdsToAdd.push(meal.id);
+                
+                console.log('DEBUG: Replacing', oldMealId, 'with', meal.id, meal.name);
+                
+                // Update visual display for explicit choice
+                nameEl.style.animation = 'none';
+                nameEl.offsetHeight;
+                nameEl.style.animation = 'swapIn 0.35s ease both';
+                nameEl.textContent = meal.name;
+                tags[0].textContent = meal.cuisine;
+                tags[1].textContent = meal.categories[0] || 'Dinner';
+            } else {
+                // User left it as random - don't show a specific meal name
+                // Just mark it for removal and let backend pick
+                mealIdsToRemove.push(oldMealId);
+                
+                console.log('DEBUG: Marking', oldMealId, 'for random replacement (not showing specific meal)');
+                
+                // Optional: show a "Random meal" indicator or fade out the name
+                nameEl.style.animation = 'none';
+                nameEl.offsetHeight;
+                nameEl.style.animation = 'swapIn 0.35s ease both';
+                nameEl.textContent = '🎲 ... Dinnr is picking for you ...';
+                nameEl.style.color = '#ccc';
+            }
+            
+            row.classList.remove('flagged');
+            setTimeout(() => row.classList.remove('confirmed'), 1400);
+            resetRow(row);
+        });
+        
+        updateBar();
+
+        console.log('DEBUG: mealIdsToRemove =', mealIdsToRemove);
+        console.log('DEBUG: mealIdsToAdd =', mealIdsToAdd);
+        
+        // Populate hidden form inputs
+        document.getElementById('meal_ids_input').value = JSON.stringify(mealIdsToRemove);
+        document.getElementById('meal_ids_to_add_input').value = JSON.stringify(mealIdsToAdd);
+        
+        console.log('DEBUG: Form input values set');
+
+        // Submit the form after animation
+        setTimeout(() => {
+            console.log('DEBUG: Submitting form');
+            document.getElementById('replaceForm').submit();
+        }, 500);
+    }
+
+    function clearAllFlags() {
+        getFlagged().forEach(row => { row.classList.remove('flagged'); resetRow(row); });
+        updateBar();
+    }
+
+    function toggleStar(el, mealId, isFavorite) {
+        // Toggle the favorited class for styling
+        el.classList.toggle('favorited');
+        const newFavoriteStatus = !isFavorite;
+        
+        // Update the star SVG
+        if (newFavoriteStatus) {
+            el.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>';
+        } else {
+            el.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>';
+        }
+    }
+
+    // Initialize star styling on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.meal-fav').forEach(star => {
+            const svg = star.querySelector('svg');
+            if (svg && svg.getAttribute('fill') === '#c8455a') {
+                star.classList.add('favorited');
+            }
+        });
+    });</script>
+
+{% endblock %}

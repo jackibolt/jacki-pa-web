@@ -1,0 +1,81 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="main-content-wrapper">
+    <style>
+        .contact-page { --green: #1a3a2a; --cream: #f5f0e8; --border: rgba(26,58,42,0.08); max-width: 700px; margin: 0 auto; font-family: 'DM Sans', sans-serif; }
+        .page-header { padding: 0 0 20px 0; margin-bottom: 18px; }
+        .page-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #8aaa98; margin-bottom: 6px; }
+        .page-title { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 500; color: var(--green); letter-spacing: -0.5px; margin: 0; }
+
+        .section-card { background: white; border-radius: 14px; padding: 22px; border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(26,58,42,0.06), 0 4px 24px rgba(26,58,42,0.04); }
+        .section-title { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500; color: var(--green); margin-bottom: 12px; }
+
+        .field { margin-bottom: 14px; }
+        .field-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #4a6258; margin-bottom: 8px; display: block; }
+        .field-input { width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--cream); font-size: 14px; color: #1a2620; outline: none; }
+        .field-input:focus { background: white; box-shadow: 0 0 0 4px rgba(61,122,87,0.06); border-color: rgba(61,122,87,0.6); }
+
+        .field-textarea { width: 100%; min-height: 140px; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(26,58,42,0.08); background: #fff; font-size: 14px; color: #1a2620; }
+
+        .contact-page .btn-primary { padding: 11px 26px; border-radius: 20px; border: none; background: var(--green); color: var(--cream); font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 6px 18px rgba(26,58,42,0.18); }
+        .contact-page .btn-primary:hover { transform: translateY(-1px); }
+        .contact-page .btn-secondary { padding: 9px 18px; border-radius: 14px; border: 1px solid var(--border); background: var(--cream); color: var(--green); cursor: pointer; }
+
+        .save-row { display: flex; gap: 12px; margin-top: 16px; align-items: center; }
+
+        .flash-message { padding: 10px 12px; border-radius: 10px; margin-bottom: 12px; font-size: 14px; }
+        .flash-message.error { background: #fff0f2; color: #b23a4a; border: 1px solid rgba(200,69,90,0.12); }
+        .flash-message.success { background: #eaf4ed; color: #1a3a2a; border: 1px solid rgba(26,58,42,0.08); }
+
+        @media (max-width: 640px) { .contact-page { padding: 0 18px; } .btn-primary { width: 100%; } }
+    </style>
+
+    <div class="contact-page">
+        <div class="page-header">
+            <div class="page-eyebrow">Help</div>
+            <div class="page-title">Contact</div>
+        </div>
+
+        <div class="section-card">
+            <div class="section-title">Send us a message</div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ 'error' if category == 'error' else 'success' }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% if success %}
+                <div class="flash-message success">Message sent successfully!</div>
+            {% endif %}
+
+            <form action="{{ url_for('routes.contact') }}" method="POST">
+                <div class="field">
+                    <label class="field-label">Name</label>
+                    <input class="field-input" type="text" id="name" name="name" placeholder="Your name" required value="{{ user.name if user }}">
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Email</label>
+                    <input class="field-input" type="email" id="email" name="email" placeholder="you@example.com" required value="{{ user.email if user }}">
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Message</label>
+                    <textarea class="field-textarea" id="message" name="message" placeholder="Write your message here..." required></textarea>
+                </div>
+
+                <div class="save-row">
+                    <button type="submit" class="btn-primary">Send Message</button>
+                    <button type="button" class="btn-secondary" onclick="window.location.href='{{ url_for('routes.home') }}'">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    </div>
+
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="subscription-canceled-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">Subscription Update</div>
+            <div class="page-title">Canceled</div>
+        </div>
+    </div>
+
+    <!-- Info Text -->
+    <div class="page-info">
+        <p class="info-primary">Your subscription has been canceled.</p>
+        <p class="info-secondary">You can reactivate it anytime from your account settings.</p>
+    </div>
+
+    <div class="form-card">
+        <div class="canceled-message">
+            <div class="canceled-icon">✕</div>
+            <p class="canceled-title">Cancellation Complete</p>
+            <p class="canceled-description">Your subscription has been canceled. You'll have access to your account, but premium features will no longer be available.</p>
+            <a href="{{ url_for('routes.home') }}" class="btn btn-ghost" style="display: inline-block; margin-top: 24px;">
+                Return to Home
+            </a>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

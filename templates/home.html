@@ -1,0 +1,181 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+
+<!-- HERO -->
+<div class="hero-strip">
+  <div class="hero-greeting"><span id="greeting">Good evening</span>, {{ user.name or 'there' }}</div>
+  <div class="hero-headline">{{ random_subhead.main }}<br><em>{{ random_subhead.em }}</em></div>
+  <div class="hero-sub">{{ meals|length }} meals saved · {{ meal_plans|length }} active plans</div>
+</div>
+
+<script>
+  // Set dynamic greeting based on time of day
+  const hour = new Date().getHours();
+  let greeting = 'Good evening';
+  
+  if (hour < 12) {
+    greeting = 'Good morning';
+  } else if (hour < 17) {
+    greeting = 'Good afternoon';
+  }
+  
+  document.getElementById('greeting').textContent = greeting;
+</script>
+
+<!-- STATS -->
+<div class="stats-row">
+  <div class="stat-pill">
+    <div class="stat-num">{{ meals|length }}</div>
+    <div class="stat-label">Meals</div>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-num">{{ meal_plans|length }}</div>
+    <div class="stat-label">Plans</div>
+  </div>
+  <div class="stat-pill">
+    <div class="stat-num">{{ ingredients_count }}</div>
+    <div class="stat-label">Ingredients</div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- GENERATE CTA -->
+  <div class="generate-cta" onclick="window.location.href='{{ url_for('routes.new_meal_plan') }}'">
+    <div>
+      <div class="cta-text-small">Ready to plan?</div>
+      <div class="cta-text-big">Generate a Meal Plan</div>
+    </div>
+    <div class="cta-icon">🎲</div>
+  </div>
+
+  <div class="main-content-wrapper">
+    <!-- LEFT COLUMN: YOUR MEALS -->
+    <div class="main-left">
+      <div>
+        <div class="section-header">
+          <span class="section-title">Your Meals</span>
+          <a href="{{ url_for('routes.meals') }}" class="section-link">See all →</a>
+        </div>
+        <div class="meal-list">
+          {% set meal_emojis = ['🍕', '🍝', '🥟', '🍛', '🍜'] %}
+          {% for meal in meals[:5] %}
+            <div class="meal-card" onclick="window.location.href='{{ url_for('routes.meal_detail', meal_id=meal.id) }}'">
+              <div class="meal-emoji">{{ meal_emojis[loop.index0 % meal_emojis|length] }}</div>
+              <div class="meal-info">
+                <div class="meal-name">{{ meal.name }}</div>
+                <div class="meal-tags">
+                  {% if meal.cuisine %}
+                    <span class="tag tag-cuisine">{{ meal.cuisine }}</span>
+                  {% endif %}
+                  {% if meal.category %}
+                    <span class="tag tag-type">{{ meal.category }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="meal-fav">
+                {% if meal.is_favorite %}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                {% else %}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                {% endif %}
+              </div>
+            </div>
+          {% else %}
+            <p class="no-meals-home">No meals yet.</p>
+          {% endfor %}
+        </div>
+        <button class="add-btn" onclick="window.location.href='{{ url_for('routes.new_meal') }}'" style="border-color: rgba(245,240,232,0.2); color: #8aaa98;">＋ Add a meal</button>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: MEAL PLANS -->
+    <div class="main-right">
+      <!-- MEAL PLANS -->
+      <div>
+        <div class="section-header">
+          <span class="section-title">Meal Plans</span>
+          <a href="{{ url_for('routes.meal_plans') }}" class="section-link">See all →</a>
+        </div>
+        <div class="meal-list">
+          {% for plan in meal_plans[:5] %}
+            <div class="plan-card" style="--progress: {{ plan.percentage }}%" onclick="window.location.href='{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}'">
+              <div class="plan-card-header">
+                <div class="plan-info">
+                  <div class="plan-name">{{ plan.name or 'Unnamed Plan' }}</div>
+                </div>
+                <div class="plan-date">{{ plan.created_at }}</div>
+              </div>
+              <div class="plan-progress">
+                <div class="plan-progress-labels">
+                  <span class="plan-progress-label-left">{{ plan.cooked_meals }}/{{ plan.total_meals }} meals</span>
+                  <span class="plan-progress-label-right">{{ plan.percentage }}%</span>
+                </div>
+                <div class="plan-progress-track">
+                  <div class="plan-progress-fill"></div>
+                </div>
+              </div>
+            </div>
+          {% else %}
+            <p class="no-meal-plans">No meal plans found.</p>
+          {% endfor %}
+        </div>
+        <button class="add-btn" onclick="window.location.href='{{ url_for('routes.new_meal_plan') }}'" style="border-color: rgba(245,240,232,0.2); color: #8aaa98;">＋ New meal plan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK ACTIONS -->
+  <div>
+    <div class="section-header">
+      <span class="section-title">Quick Actions</span>
+    </div>
+    <div class="quick-actions">
+      <div class="quick-action" onclick="window.location.href='{{ url_for('routes.grocery_list') }}'">
+        <div class="qa-icon">🛒</div>
+        <div class="qa-label">Grocery List</div>
+        <div class="qa-sub">From active plans</div>
+      </div>
+      <div class="quick-action" onclick="window.location.href='{{ url_for('routes.meals') }}#ingredients'">
+        <div class="qa-icon">🥗</div>
+        <div class="qa-label">Ingredients</div>
+        <div class="qa-sub">Manage your pantry</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="home-container" data-show-modal="{{ 'true' if show_home_modal else 'false' }}" style="display: none;"></div>
+
+<script>
+  // Set stripe colors based on progress percentage
+  function setStripeColors() {
+    const cream = '#f5f0e8';
+    const green = '#1a3a2a';
+    const rose = '#c8455a';
+    
+    document.querySelectorAll(".main-right .plan-card").forEach((card) => {
+      const progressStr = card.style.getPropertyValue('--progress');
+      const progress = parseInt(progressStr) || 0;
+      
+      let color;
+      if (progress === 0) {
+        color = cream;
+      } else if (progress === 100) {
+        color = rose;
+      } else {
+        color = green;
+      }
+      
+      card.style.setProperty('--stripe-color', color);
+    });
+  }
+  
+  // Run on page load
+  document.addEventListener('DOMContentLoaded', setStripeColors);
+</script>
+
+{% endblock %}

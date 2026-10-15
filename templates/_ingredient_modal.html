@@ -1,0 +1,197 @@
+<!-- ADD INGREDIENT MODAL -->
+<style>
+  .ingredient-add-modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(26, 58, 42, 0.4); backdrop-filter: blur(4px);
+    z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .ingredient-add-modal-overlay.open { display: flex; }
+  .ingredient-add-modal {
+    background: white; border-radius: 24px; max-width: 420px; width: 100%;
+    overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    animation: modalSlideUp 0.25s ease both;
+  }
+  @keyframes modalSlideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: none; } }
+  .ingredient-add-modal-header {
+    background: #f5f0e8; padding: 16px 18px; position: relative; border-bottom: 1px solid rgba(26, 58, 42, 0.06);
+  }
+  .ingredient-add-modal-eyebrow { font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #8aaa98; margin-bottom: 3px; }
+  .ingredient-add-modal-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 500; color: #1a3a2a; margin: 0; }
+  .ingredient-add-modal-close {
+    position: absolute; top: 12px; right: 12px; width: 28px; height: 28px; border-radius: 50%;
+    border: 1px solid rgba(26, 58, 42, 0.1); background: white; color: rgba(26, 58, 42, 0.5);
+    font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .ingredient-add-modal-close:hover { background: #eaf4ed; border-color: rgba(26, 58, 42, 0.15); color: #1a3a2a; }
+  .ingredient-add-modal-body { padding: 16px 14px; }
+  .ingredient-add-form-field { margin-bottom: 14px; }
+  .ingredient-add-form-label { font-size: 9px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: #8aaa98; margin-bottom: 6px; display: block; }
+  .ingredient-add-form-input {
+    width: 100%; padding: 9px 11px; border-radius: 10px;
+    border: 1.5px solid rgba(26, 58, 42, 0.12); background: #eaf4ed;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; color: #1a3a2a;
+    outline: none; transition: all 0.18s;
+  }
+  .ingredient-add-form-input::placeholder { color: #8aaa98; }
+  .ingredient-add-form-input:focus { border-color: #3d7a57; background: white; box-shadow: 0 0 0 3px rgba(61, 122, 87, 0.1); }
+  .ingredient-add-cat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  }
+  .ingredient-add-cat-btn {
+    padding: 10px 8px; border-radius: 10px; border: 1.5px solid rgba(26, 58, 42, 0.1);
+    background: white; font-family: 'DM Sans', sans-serif; font-size: 10px; font-weight: 500;
+    color: #4a6258; cursor: pointer; text-align: center; transition: all 0.15s;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .ingredient-add-cat-btn:hover { border-color: #3d7a57; background: #f5f0e8; }
+  .ingredient-add-cat-btn.selected { background: #1a3a2a; color: #f5f0e8; border-color: #1a3a2a; }
+  .ingredient-add-cat-icon { font-size: 18px; }
+  .ingredient-add-modal-footer {
+    display: flex; gap: 10px; padding: 14px 14px; border-top: 1px solid rgba(26, 58, 42, 0.06);
+  }
+  .ingredient-add-btn-cancel {
+    flex: 1; padding: 10px; border-radius: 10px; border: 1.5px solid rgba(26, 58, 42, 0.1);
+    background: white; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+    color: #8aaa98; cursor: pointer; transition: all 0.15s;
+  }
+  .ingredient-add-btn-cancel:hover { border-color: rgba(26, 58, 42, 0.2); background: #f5f0e8; }
+  .ingredient-add-btn-save {
+    flex: 1.4; padding: 10px; border-radius: 10px; border: none;
+    background: #1a3a2a; color: white; font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.18s;
+  }
+  .ingredient-add-btn-save:hover { background: #2c5a40; }
+  .ingredient-add-btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+
+<div class="ingredient-add-modal-overlay" id="addIngredientModal">
+  <div class="ingredient-add-modal">
+    <div class="ingredient-add-modal-header">
+      <div class="ingredient-add-modal-eyebrow">Ingredients</div>
+      <div class="ingredient-add-modal-title">Add Ingredient</div>
+      <button class="ingredient-add-modal-close" id="modalAddCloseBtn" type="button">✕</button>
+    </div>
+    <form id="addIngredientForm" method="POST" action="{{ url_for('routes.new_ingredient') }}">
+      <div class="ingredient-add-modal-body">
+        <div class="ingredient-add-form-field">
+          <label class="ingredient-add-form-label">Ingredient Name</label>
+          <input class="ingredient-add-form-input" type="text" id="ingredientNameInput" name="name" placeholder="e.g. Chicken Breast" required>
+        </div>
+        <div class="ingredient-add-form-field">
+          <label class="ingredient-add-form-label">Category</label>
+          <div class="ingredient-add-cat-grid">
+            {% set category_icons = {
+              'Produce': '🥬',
+              'Dairy & Eggs': '🧀',
+              'Protein': '🥩',
+              'Frozen Goods': '❄️',
+              'Cans & Jars': '🥫',
+              'Bakery & Grains': '🍞',
+              'Dry Goods & Pasta': '🌾',
+              'Spices & Seasonings': '🧂',
+              'Breakfast & Cereals': '🥣',
+              'Condiments & Sauces': '🍯',
+              'Beverages': '🍵',
+              'Snacks & Sweets': '🍪'
+            } %}
+            {% for cat in ingredient_categories %}
+              {% if cat.name != 'Other' %}
+                <button type="button" class="ingredient-add-cat-btn" onclick="selectAddCategory(this, '{{ cat.name }}'); return false;">
+                  <span class="ingredient-add-cat-icon">{{ category_icons.get(cat.name, '🥕') }}</span>
+                  <span>{{ cat.name }}</span>
+                </button>
+              {% endif %}
+            {% endfor %}
+          </div>
+          <input type="hidden" id="selectedAddCategory" name="category_name" required>
+        </div>
+      </div>
+      <div class="ingredient-add-modal-footer">
+        <button type="button" class="ingredient-add-btn-cancel" id="modalAddCancelBtn">Cancel</button>
+        <button type="submit" class="ingredient-add-btn-save">Save Ingredient</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Modal helper functions
+  function openAddIngredientModal() {
+    document.getElementById('addIngredientModal').classList.add('open');
+    setTimeout(() => document.getElementById('ingredientNameInput').focus(), 100);
+  }
+
+  function closeAddIngredientModal() {
+    document.getElementById('addIngredientModal').classList.remove('open');
+    resetAddIngredientForm();
+  }
+
+  function resetAddIngredientForm() {
+    document.getElementById('addIngredientForm').reset();
+    document.getElementById('ingredientNameInput').value = '';
+    document.getElementById('selectedAddCategory').value = '';
+    document.querySelectorAll('.ingredient-add-cat-btn').forEach(o => o.classList.remove('selected'));
+  }
+
+  function selectAddCategory(el, categoryName) {
+    document.querySelectorAll('.ingredient-add-cat-btn').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('selectedAddCategory').value = categoryName;
+  }
+
+  // Set up modal event listeners
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupIngredientAddModal);
+  } else {
+    setupIngredientAddModal();
+  }
+
+  function setupIngredientAddModal() {
+    const addIngredientModal = document.getElementById('addIngredientModal');
+    const modalCloseBtn = document.getElementById('modalAddCloseBtn');
+    const modalCancelBtn = document.getElementById('modalAddCancelBtn');
+
+    if (modalCloseBtn) {
+      modalCloseBtn.addEventListener('click', closeAddIngredientModal);
+    }
+
+    if (modalCancelBtn) {
+      modalCancelBtn.addEventListener('click', closeAddIngredientModal);
+    }
+
+    if (addIngredientModal) {
+      addIngredientModal.addEventListener('click', function(e) {
+        if (e.target === this) {
+          closeAddIngredientModal();
+        }
+      });
+    }
+
+    const addIngredientForm = document.getElementById('addIngredientForm');
+    if (addIngredientForm) {
+      addIngredientForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => {
+          if (response.ok || response.status === 201) {
+            closeAddIngredientModal();
+            // Reload the current page to reflect the new ingredient
+            location.reload();
+          } else {
+            alert('Error adding ingredient: ' + response.statusText);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('Error adding ingredient');
+        });
+      });
+    }
+  }
+</script>

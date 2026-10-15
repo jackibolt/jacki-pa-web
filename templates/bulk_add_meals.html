@@ -1,0 +1,188 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<a href="{{ url_for('routes.meals') }}" class="btn-back">← Meals</a>
+
+<div class="bulk-add-page">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">Add Multiple</div>
+      <div class="page-title">Meals</div>
+    </div>
+  </div>
+
+  <!-- Info Text -->
+  <div class="page-info">
+    <p class="info-primary">Add up to 10 meals at once</p>
+    <p class="info-secondary">Meal name is required. Edit other details later if needed.</p>
+  </div>
+
+  <form method="POST" action="{{ url_for('routes.bulk_add_meals') }}" id="bulk-meal-form">
+    <div class="form-card">
+      <div id="bulk-meal-entries">
+        <!-- Start with only one meal entry -->
+        <div class="bulk-meal-entry" id="meal-entry-0">
+          <div class="meal-entry-header">
+            <h4 class="meal-entry-title">Meal 1</h4>
+            <button type="button" class="btn-remove-meal" onclick="removeMealEntry(0)" title="Remove meal">✕</button>
+          </div>
+
+          <div class="form-field">
+            <input type="text" class="form-input" name="name_0" placeholder="Meal name*" required>
+          </div>
+
+          <div class="form-field">
+            <div class="bulk-add-selects">
+              <select class="form-select" name="cuisine_0">
+                <option value="">Select cuisine</option>
+                {% for cuisine in cuisines %}
+                  <option value="{{ cuisine.name }}">{{ cuisine.name }}</option>
+                {% endfor %}
+              </select>
+              <select class="form-select" name="category_0">
+                <option value="">Select category</option>
+                {% for category in categories %}
+                  <option value="{{ category.name }}">{{ category.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="form-divider"></div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="bulk-actions">
+        <button type="button" class="btn btn-secondary" id="add-meal-btn" onclick="addMealEntry()">+ Add Another Meal</button>
+      </div>
+    </div>
+
+    <input type="hidden" name="meals" id="meals-json">
+    <button type="submit" class="btn btn-primary" onclick="prepareMealsForSubmit()">Submit Meals</button>
+  </form>
+</div>
+
+<script>
+let mealCount = 1; // Number of meal entries currently shown
+let mealIdCounter = 1; // Unique ID for each meal entry
+const maxMeals = 10;
+
+function addMealEntry() {
+    if (mealCount >= maxMeals) return;
+
+    const container = document.getElementById('bulk-meal-entries');
+
+    const entryHtml = `
+        <div class="bulk-meal-entry" id="meal-entry-${mealIdCounter}">
+            <div class="meal-entry-header">
+                <h4 class="meal-entry-title">Meal ${mealCount + 1}</h4>
+                <button type="button" class="btn-remove-meal" onclick="removeMealEntry(${mealIdCounter})" title="Remove meal">✕</button>
+            </div>
+
+            <div class="form-field">
+                <input type="text" class="form-input" name="name_${mealIdCounter}" placeholder="Meal name*" required>
+            </div>
+
+            <div class="form-field">
+                <div class="bulk-add-selects">
+                    <select class="form-select" name="cuisine_${mealIdCounter}">
+                        <option value="">Select cuisine</option>
+                        {% for cuisine in cuisines %}
+                            <option value="{{ cuisine.name }}">{{ cuisine.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select class="form-select" name="category_${mealIdCounter}">
+                        <option value="">Select category</option>
+                        {% for category in categories %}
+                            <option value="{{ category.name }}">{{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-divider"></div>
+        </div>
+    `;
+
+    container.insertAdjacentHTML('beforeend', entryHtml);
+    mealCount++;
+    mealIdCounter++;
+
+    if (mealCount === maxMeals) {
+        document.getElementById('add-meal-btn').style.display = 'none';
+    }
+}
+
+function removeMealEntry(id) {
+    const entry = document.getElementById(`meal-entry-${id}`);
+    if (entry) {
+        entry.remove();
+        mealCount--;
+
+        if (mealCount < maxMeals) {
+            document.getElementById('add-meal-btn').style.display = 'inline-block';
+        }
+
+        updateMealNumbers();
+    }
+}
+
+function updateMealNumbers() {
+    const entries = document.querySelectorAll('#bulk-meal-entries .bulk-meal-entry');
+    entries.forEach((entry, index) => {
+        const header = entry.querySelector('h4');
+        if (header) {
+            header.textContent = `Meal ${index + 1}`;
+        }
+    });
+}
+
+function prepareMealsForSubmit() {
+    const meals = [];
+
+    const entries = document.querySelectorAll('#bulk-meal-entries .bulk-meal-entry');
+    entries.forEach(entry => {
+        const id = entry.id.split('-')[2];
+        const nameInput = entry.querySelector(`[name="name_${id}"]`);
+        const cuisineSelect = entry.querySelector(`[name="cuisine_${id}"]`);
+        const categorySelect = entry.querySelector(`[name="category_${id}"]`);
+
+        if (nameInput) {
+            const name = nameInput.value.trim();
+            const cuisine = cuisineSelect ? cuisineSelect.value : '';
+            const category = categorySelect ? categorySelect.value : '';
+
+            if (name) {
+                meals.push({
+                    name: name,
+                    cuisine: cuisine || null,
+                    categories: category ? [category] : [],
+                    tidbits: "",
+                    website_link: "",
+                    ingredients: []
+                });
+            }
+        }
+    });
+
+    // Remove previous hidden inputs
+    const form = document.getElementById('bulk-meal-form');
+    document.querySelectorAll('input[name="meals"]').forEach(input => input.remove());
+
+    // Add one hidden input per meal
+    meals.forEach(m => {
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'meals';
+        hiddenInput.value = JSON.stringify(m);
+        form.appendChild(hiddenInput);
+    });
+}
+
+</script>
+
+
+{% endblock %}

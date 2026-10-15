@@ -1,0 +1,998 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+  :root {
+    --plan-color-0: #d4a843;
+    --plan-color-1: #4a9068;
+    --plan-color-2: #c8455a;
+    --plan-color-3: #5a8a6a;
+    --plan-color-4: #c87820;
+    --plan-color-5: #8040b0;
+    --plan-color-6: #b05030;
+    --plan-color-7: #2080a0;
+    --plan-color-8: #909000;
+    --plan-color-9: #906040;
+  }
+  /* Plan pill styling - 10 color options */
+  .plan-pill {
+    display: inline-block;
+    width: 14px;
+    height: 9px;
+    border-radius: 40%;
+    flex-shrink: 0;
+    font-size: 0;
+  }
+  
+  .plan-pill[data-color="0"] { background: #d4a843; }
+  .plan-pill[data-color="1"] { background: #4a9068; }
+  .plan-pill[data-color="2"] { background: #c8455a; }
+  .plan-pill[data-color="3"] { background: #5a8a6a; }
+  .plan-pill[data-color="4"] { background: #c87820; }
+  .plan-pill[data-color="5"] { background: #8040b0; }
+  .plan-pill[data-color="6"] { background: #b05030; }
+  .plan-pill[data-color="7"] { background: #2080a0; }
+  .plan-pill[data-color="8"] { background: #909000; }
+  .plan-pill[data-color="9"] { background: #906040; }
+
+  /* Quantity pill base styling */
+  .qty-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  /* Quantity pill colors - updated from design */
+  .qty-smidge {
+    background: #f0d98a;
+    color: #6b4c00;
+    border: none;
+  }
+
+  .qty-little {
+    background: #a8d4b8;
+    color: #1a4a2a;
+    border: none;
+  }
+
+  .qty-medium {
+    background: #4a9068;
+    color: white;
+    border: none;
+    width: 68px;
+    white-space: normal;
+    word-break: break-word;
+    text-align: center;
+    line-height: 1.3;
+    padding: 4px 6px;
+  }
+
+  .qty-lot {
+    background: var(--rose);
+    color: white;
+    border: none;
+  }
+
+  /* Items grid layout */
+  .items-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  /* Two columns at desktop width */
+  @media (min-width: 641px) {
+    .items-list {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* Item name and source styling */
+  .g-name { font-family: 'Fraunces', serif; font-size: 15px; font-weight: 500; color: var(--text-dark); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .g-source { font-size: 11px; color: var(--text-light); display: flex; flex-direction: column; gap: 2px; margin-top: 1px; }
+  .g-meal { display: flex; align-items: center; gap: 5px; min-width: 0; }
+  .g-meal-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+
+  @media (max-width: 640px) {
+    .g-meal-text { max-width: 70px; }
+    .grocery-list-page .g-inner { gap: 4px; }
+  }
+  
+  /* Collapsible multi-source items */
+  .g-source.collapsible .g-meal { display: none; }
+  .g-source.collapsible.expanded .g-meal { display: flex; }
+  .g-source .g-meal:first-of-type { margin-top: 5px; }
+  .g-source-summary {
+    display: none; align-items: center; gap: 6px; cursor: pointer;
+    font-size: 11px; color: var(--text-light); user-select: none;
+  }
+  .g-source-summary:hover .g-source-count { border-color: rgba(26,58,42,0.2); color: var(--green); }
+  .g-source.collapsible .g-source-summary { display: flex; }
+  .g-source.collapsible.expanded .g-source-summary { display: flex; }
+  .g-source-count {
+    font-size: 10px; font-weight: 600; color: var(--text-mid);
+    background: var(--bg); border: 1.5px solid var(--border);
+    padding: 2px 8px; border-radius: 20px; transition: all 0.15s;
+  }
+  .g-source-chevron {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--bg); border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: var(--text-light); line-height: 1;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  .g-source-summary:hover .g-source-chevron { border-color: rgba(26,58,42,0.2); color: var(--green); }
+  .g-source.expanded .g-source-chevron { transform: rotate(180deg); }
+
+  /* Plan dot in Plans section */
+  .plan-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+
+  .plan-row-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+</style>
+
+<div class="page grocery-list-page">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="page-eyebrow">Shopping</div>
+    <div class="page-title">Grocery List</div>
+  </div>
+
+  <!-- Toolbar (with integrated stats pill) -->
+  <div class="toolbar">
+    <span class="stat-pill" id="totalPill">0 items</span>
+    <button class="btn-toolbar" onclick="clearChecked()">Clear checked</button>
+    <button class="btn-toolbar danger" onclick="clearAll()">Clear all</button>
+  </div>
+
+  <!-- Add Item Section -->
+  <div class="add-item-wrap" style="position: relative; z-index: 10;">
+    <input class="add-item-input" type="text" placeholder="Add an item…" id="addInput" onkeydown="if(event.key==='Enter')addItem()" oninput="handleAddInputChange()">
+    <div id="ingredientsDropdown" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; max-height: 300px; overflow-y: auto; display: none; border: 1px solid #e0e0e0; margin-top: 4px;"></div>
+    <button class="btn-add" onclick="addItem()">+ Add</button>
+  </div>
+
+  <!-- Quantity Modal -->
+  <div id="quantityModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(26,58,42,0.35); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center;">
+    <div style="background: white; padding: 28px 24px; border-radius: 20px; max-width: 320px; width: 90%; text-align: center; box-shadow: 0 20px 60px rgba(26,58,42,0.2), 0 4px 16px rgba(26,58,42,0.1); border: 1.5px solid rgba(26,58,42,0.08);">
+      <h3 style="margin: 0 0 6px 0; font-family: 'Fraunces', serif; font-size: 18px; font-weight: 500; color: #1a3a2a;">How much do you need?</h3>
+      <p style="margin: 0 0 20px 0; font-family: 'DM Sans', sans-serif; font-size: 12px; color: #8aaa98;">Select a quantity for this item</p>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px;">
+        <button onclick="confirmAddItem(1)" style="padding: 14px 16px; border: none; background: #a8d4b8; color: #1a4a2a; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; letter-spacing: 0.3px; text-transform: uppercase; transition: all 0.18s;" onmouseover="this.style.filter='brightness(0.95)'" onmouseout="this.style.filter=''">
+          a little
+        </button>
+        <button onclick="confirmAddItem(2)" style="padding: 14px 16px; border: none; background: #4a9068; color: white; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; letter-spacing: 0.3px; text-transform: uppercase; transition: all 0.18s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
+          medium
+        </button>
+        <button onclick="confirmAddItem(3)" style="padding: 14px 16px; border: none; background: #c8455a; color: white; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif; letter-spacing: 0.3px; text-transform: uppercase; transition: all 0.18s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter=''">
+          a lot
+        </button>
+      </div>
+      <button onclick="closeQuantityModal()" style="width: 100%; padding: 11px; border: 1.5px solid rgba(26,58,42,0.1); background: #f5f0e8; border-radius: 12px; cursor: pointer; color: #8aaa98; font-weight: 500; font-size: 13px; font-family: 'DM Sans', sans-serif; transition: all 0.18s;" onmouseover="this.style.borderColor='rgba(26,58,42,0.2)';this.style.color='#4a6258'" onmouseout="this.style.borderColor='rgba(26,58,42,0.1)';this.style.color='#8aaa98'">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Main Grocery Container -->
+  <div id="groceryCategories">
+
+    <!-- PLANS IN THIS LIST - Will be populated by JavaScript or Jinja2 -->
+    {% if meal_plan_ids or meal_plan_id %}
+    <div class="plans-section open" id="plansSection">
+      <div class="plans-block">
+        <div class="plans-block-hdr" onclick="this.closest('.plans-section').classList.toggle('open')">
+          <span class="plans-block-title">Plans in this list</span>
+          <span class="plans-block-chevron">▼</span>
+        </div>
+        <div class="plans-list" id="plansList">
+          <!-- Plans will be populated by JavaScript -->
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- CATEGORY SECTIONS - Populated by JavaScript from grocery_list data -->
+    <!-- Structure will be generated dynamically -->
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV (Mobile) -->
+<div class="bottom-nav">
+  <div class="bn-inner">
+    <div class="bn-item"><div class="bn-icon">🏠</div><div class="bn-label">Home</div></div>
+    <div class="bn-item"><div class="bn-icon">🍽️</div><div class="bn-label">Meals</div></div>
+    <div class="bn-center"><div class="bn-fab">🎲</div></div>
+    <div class="bn-item active"><div class="bn-icon">📋</div><div class="bn-label">Plans</div></div>
+    <div class="bn-item"><div class="bn-icon">👤</div><div class="bn-label">Profile</div></div>
+  </div>
+</div>
+
+<script>
+  {% autoescape false %}
+  // ════════════════════════════════════════════════════════════════
+  // DATA INITIALIZATION
+  // ════════════════════════════════════════════════════════════════
+
+  // Get grocery data from Jinja2
+  const groceryList = {%- if grocery_list %} {{ grocery_list | tojson }} {%- else %} {} {%- endif %};
+  const mealPlanIds = {{ meal_plan_ids | tojson if meal_plan_ids else '[]' }};
+  const mealPlanId = {{ meal_plan_id | tojson if meal_plan_id else 'null' }};
+  const mealPlanName = {{ meal_plan_name | tojson if meal_plan_name else '"Meal Plan"' }};  const mealPlanNames = {{ meal_plan_names | tojson if meal_plan_names else '{}' }};
+  const scratchItemsByPlan = {{ scratch_items_by_plan | tojson if scratch_items_by_plan else '{}' }};
+  
+  console.log('💾 groceryList loaded:', Object.keys(groceryList).length, 'categories');
+  console.log('📊 groceryList:', groceryList);
+  console.log('🗂️ scratchItemsByPlan:', scratchItemsByPlan);
+  
+  // Render grocery list on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('🔄 DOMContentLoaded fired - rendering grocery list');
+    renderGroceryList();
+    renderPlansSection();
+    updateCounts();
+    populateIngredientsAutocomplete();
+    
+    // Close dropdown when clicking elsewhere
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('ingredientsDropdown');
+      const input = document.getElementById('addInput');
+      if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.style.display = 'none';
+      }
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════════
+  // RENDER GROCERY LIST
+  // ════════════════════════════════════════════════════════════════
+
+  function getPlanColorIndex(planId) {
+    // Cycle through 10 colors (0-9) based on plan ID
+    return (planId % 10);
+  }
+
+  function renderGroceryList() {
+    console.log('🎨 renderGroceryList called');
+    const container = document.getElementById('groceryCategories');
+    console.log('📦 container found:', !!container);
+    const plansSection = document.getElementById('plansSection');
+    
+    // Find the insertion point (after plans section)
+    const insertPoint = plansSection ? plansSection.nextSibling : container.firstChild;
+    
+    // Remove existing category sections
+    const existingSections = container.querySelectorAll('.cat-section');
+    existingSections.forEach(s => s.remove());
+
+    if (!groceryList || Object.keys(groceryList).length === 0) {
+      console.warn('⚠️ groceryList is empty or undefined');
+      const noData = document.createElement('p');
+      noData.textContent = 'No grocery items.';
+      noData.style.textAlign = 'center';
+      noData.style.color = 'var(--text-light)';
+      noData.style.marginTop = '32px';
+      container.appendChild(noData);
+      return;
+    }
+    
+    console.log('✨ groceryList has', Object.keys(groceryList).length, 'categories');
+
+    // Sort categories alphabetically
+    const sortedCategories = Object.keys(groceryList).sort();
+    let animationDelay = plansSection ? 0.08 : 0;
+
+    sortedCategories.forEach((category, idx) => {
+      const items = groceryList[category];
+      
+      if (!items || Object.keys(items).length === 0) return;
+
+      // Create category section
+      const catSection = document.createElement('div');
+      catSection.className = 'cat-section';
+      catSection.style.animationDelay = (animationDelay + idx * 0.04) + 's';
+
+      // Category header
+      const catHeader = document.createElement('div');
+      catHeader.className = 'cat-header';
+      catHeader.innerHTML = `
+        <span class="cat-title">${category}</span>
+        <span class="cat-line"></span>
+      `;
+      catSection.appendChild(catHeader);
+
+      // Items list
+      const itemsList = document.createElement('div');
+      itemsList.className = 'items-list';
+
+      Object.entries(items).forEach(([ingredientName, ingredientData]) => {
+        // Sum total dots from all meals, or use direct quantity for manually added items
+        const totalDots = (ingredientData.meal_details || []).length > 0 
+          ? (ingredientData.meal_details || []).reduce((sum, meal) => sum + (meal.quantity || 0), 0)
+          : (ingredientData.quantity || 0);
+        let qtyLevel = 'medium';
+        let qtyLabel = 'medium amount';
+
+        if (totalDots === 1) {
+          qtyLevel = 'little';
+          qtyLabel = 'a little';
+        } else if (totalDots === 2) {
+          qtyLevel = 'medium';
+          qtyLabel = 'medium';
+        } else if (totalDots === 3) {
+          qtyLevel = 'lot';
+          qtyLabel = 'a lot';
+        } else if (totalDots >= 3 && totalDots <= 4) {
+          qtyLevel = 'medium';
+          qtyLabel = 'medium';
+        } else if (totalDots >= 5 && totalDots <= 6) {
+          qtyLevel = 'lot';
+          qtyLabel = 'a lot';
+        } else if (totalDots >= 7) {
+          qtyLevel = 'lot';
+          qtyLabel = 'a whole lot';
+        } else {
+          qtyLevel = 'medium';
+          qtyLabel = 'medium';
+        }
+
+        // Build meal details HTML
+        const mealsHTML = (ingredientData.meal_details || [])
+          .map(m => {
+            // Use plan_id from the meal detail itself
+            const planId = m.plan_id;
+            const planName = planId ? mealPlanNames[planId] : null;
+            const colorIndex = planId ? getPlanColorIndex(planId) : 0;
+            const pillHTML = planId ? `<span class="plan-pill" data-color="${colorIndex}" data-plan-id="${planId}"></span>` : '';
+            return `<span class="g-meal">${pillHTML}<span class="g-meal-text">${m.meal_name}</span> <span class="dots">${renderDots(Math.ceil(m.quantity) || 1)}</span></span>`;
+          })
+          .join('');
+        
+        // Check if we need collapsible source (2+ meals)
+        const mealCount = ingredientData.meal_details ? ingredientData.meal_details.length : 0;
+        const sourceClass = mealCount >= 2 ? 'collapsible' : '';
+        const mealLabel = `${mealCount} meal${mealCount !== 1 ? 's' : ''}`;
+        const sourceHTML = mealsHTML ? `<div class="g-source ${sourceClass}"><div class="g-source-summary" onclick="event.stopPropagation(); toggleSourceExpand(this.closest('.g-source'))"><span class="g-source-count">${mealLabel}</span><span class="g-source-chevron">▼</span></div>${mealsHTML}</div>` : '<div class="g-source"><span class="g-meal"><span class="g-meal-text">Added manually</span></span></div>';
+
+        // Get meal plan IDs from the ingredient data (now provided by backend)
+        const planIds = ingredientData.plan_ids || [];
+        const itemId = ingredientData.id;  // ID of the scratch item
+
+        const gItem = document.createElement('div');
+        gItem.className = 'g-item';
+        if (planIds.length > 0) {
+          gItem.setAttribute('data-plan-ids', JSON.stringify(planIds));
+        }
+        if (itemId) {
+          gItem.setAttribute('data-item-id', itemId);
+        }
+        // Set the checked class if is_checked is true
+        if (ingredientData.is_checked) {
+          gItem.classList.add('checked');
+        }
+        gItem.innerHTML = `
+          <div class="g-inner" onclick="toggleCheck(this.closest('.g-item'))">
+            <div class="g-check">✓</div>
+            <div class="g-info">
+              <div class="g-name">${ingredientName}</div>
+              ${sourceHTML}
+            </div>
+            <span class="qty-pill qty-${qtyLevel}">${qtyLabel}</span>
+          </div>
+          <button class="g-remove" onclick="removeItem(this)" title="Remove">✕</button>
+        `;
+        itemsList.appendChild(gItem);
+      });
+
+      catSection.appendChild(itemsList);
+      container.insertBefore(catSection, insertPoint);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // RENDER PLANS SECTION
+  // ════════════════════════════════════════════════════════════════
+
+  function renderPlansSection() {
+    const plansList = document.getElementById('plansList');
+    if (!plansList) return;
+
+    // Get meal plan data from server
+    if (mealPlanIds && mealPlanIds.length > 0) {
+      // Multiple meal plans
+      mealPlanIds.forEach(id => {
+        // Count items from this plan
+        let itemCount = 0;
+        document.querySelectorAll('.g-item[data-plan-ids]').forEach(item => {
+          try {
+            const planIds = JSON.parse(item.getAttribute('data-plan-ids') || '[]');
+            if (planIds.includes(id)) itemCount++;
+          } catch (e) { }
+        });
+
+        const planRow = document.createElement('div');
+        planRow.className = 'plan-row';
+        planRow.id = 'plan-' + id;
+        const planName = mealPlanNames[id] || `Plan ${id}`;
+        const itemLabel = itemCount + ' item' + (itemCount !== 1 ? 's' : '');
+        const colorIndex = getPlanColorIndex(id);
+        planRow.innerHTML = `
+          <span class="plan-row-dot" style="background: var(--plan-color-${colorIndex})"></span>
+          <div class="plan-row-info">
+            <div class="plan-row-name" style="cursor: pointer;" onclick="window.location.href='/meal-plans/${id}'">${planName}</div>
+            <div class="plan-row-meta">${itemLabel}</div>
+          </div>
+          <button class="btn-remove-plan" onclick="removePlan(${id})">Remove items</button>
+        `;
+        plansList.appendChild(planRow);
+      });
+    } else if (mealPlanId) {
+      // Single meal plan
+      const planRow = document.createElement('div');
+      planRow.className = 'plan-row';
+      planRow.id = 'plan-' + mealPlanId;
+      const colorIndex = getPlanColorIndex(mealPlanId);
+      planRow.innerHTML = `
+        <span class="plan-row-dot" style="background: var(--plan-color-${colorIndex})"></span>
+        <div class="plan-row-info">
+          <div class="plan-row-name" style="cursor: pointer;" onclick="window.location.href='/meal-plans/${mealPlanId}'">${mealPlanName}</div>
+          <div class="plan-row-meta">View all items from this plan</div>
+        </div>
+        <button class="btn-remove-plan" onclick="removePlan(${mealPlanId})">Remove items</button>
+      `;
+      plansList.appendChild(planRow);
+    }
+  }
+
+  function renderDots(quantity) {
+    let count = Math.min(quantity, 3);
+    let html = '';
+    for (let i = 1; i <= 3; i++) {
+      html += `<span class="dot${i > count ? ' empty' : ''}"></span>`;
+    }
+    return html;
+  }
+
+  function toggleSourceExpand(sourceEl) {
+    sourceEl.classList.toggle('expanded');
+    const chevron = sourceEl.querySelector('.g-source-chevron');
+    if (chevron) {
+      chevron.style.transform = sourceEl.classList.contains('expanded') ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // PLAN MANAGEMENT
+  // ════════════════════════════════════════════════════════════════
+
+  function removePlan(planId) {
+    const planName = mealPlanNames[planId] || `Plan ${planId}`;
+    if (!confirm(`Remove all items from "${planName}"?`)) return;
+    
+    // Get the scratch item IDs for this plan
+    const scratchItemIds = scratchItemsByPlan[planId] || [];
+    console.log(`🗑️ Removing items from plan ${planId}:`, scratchItemIds);
+    
+    if (scratchItemIds.length === 0) {
+      console.warn('⚠️ No scratch item IDs found for this plan');
+      alert('No items to remove for this plan');
+      return;
+    }
+    
+    // IMPORTANT: Only delete items that ONLY belong to this plan
+    // If an item belongs to multiple plans, don't delete it entirely
+    const itemsToDelete = [];
+    scratchItemIds.forEach(itemId => {
+      // Find the item in the DOM to check which plans it belongs to
+      const itemElement = document.querySelector(`.g-item[data-item-id="${itemId}"]`);
+      if (itemElement) {
+        const planIds = JSON.parse(itemElement.getAttribute('data-plan-ids') || '[]');
+        console.log(`Item ${itemId} belongs to plans:`, planIds);
+        
+        // Only delete if it ONLY belongs to this plan
+        if (planIds.length === 1 && planIds[0] === planId) {
+          itemsToDelete.push(itemId);
+          console.log(`✓ Will delete item ${itemId} (only in this plan)`);
+        } else {
+          console.log(`⊘ Keeping item ${itemId} (in other plans too)`);
+        }
+      }
+    });
+    
+    if (itemsToDelete.length === 0) {
+      console.warn('⚠️ No items to delete (all items are in other plans too)');
+      
+      // Still remove the plan from the UI even if no items are deleted
+      removePlanRowFromDom(planId);
+      setTimeout(updateCounts, 200);
+      return;
+    }
+    
+    console.log(`📤 Deleting ${itemsToDelete.length} unique items`);
+    
+    // Track deletion progress
+    let successCount = 0;
+    let failureCount = 0;
+    let failures = [];
+    
+    // Delete each scratch item via API
+    const deletePromises = itemsToDelete.map(itemId => {
+      console.log(`📤 Sending DELETE request for item ${itemId}`);
+      return fetch(`/scratch-list/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => {
+        console.log(`📥 Response for item ${itemId}: ${response.status}`);
+        if (response.ok) {
+          successCount++;
+          console.log(`✅ Item ${itemId} deleted successfully`);
+        } else {
+          failureCount++;
+          failures.push(itemId);
+          return response.json().then(data => {
+            console.error(`❌ Failed to delete scratch item ${itemId}: ${response.status}`, data.message);
+          }).catch(() => {
+            console.error(`❌ Failed to delete scratch item ${itemId}: HTTP ${response.status}`);
+          });
+        }
+        return response;
+      })
+      .catch(error => {
+        failureCount++;
+        failures.push(itemId);
+        console.error(`❌ Network error deleting scratch item ${itemId}:`, error);
+      });
+    });
+    
+    // After all deletions are complete, update the UI
+    Promise.all(deletePromises).then(() => {
+      console.log(`✅ Deletion complete: ${successCount} succeeded, ${failureCount} failed`);
+      
+      if (failureCount > 0) {
+        const errorMsg = `Failed to delete ${failureCount} item(s). Please check the browser console for details.`;
+        alert(errorMsg);
+        console.error('Failed item IDs:', failures);
+      }
+      
+      // Remove items from DOM that were deleted
+      itemsToDelete.forEach(itemId => {
+        const item = document.querySelector(`.g-item[data-item-id="${itemId}"]`);
+        if (item) {
+          item.style.transition = 'opacity 0.2s, transform 0.2s';
+          item.style.opacity = '0';
+          item.style.transform = 'translateX(12px)';
+          setTimeout(() => item.remove(), 200);
+        }
+      });
+      
+      // Remove the plan row from the plans section
+      removePlanRowFromDom(planId);
+      
+      setTimeout(updateCounts, 200);
+    });
+  }
+  
+  // Helper function to remove plan row from DOM
+  function removePlanRowFromDom(planId) {
+    const planRow = document.getElementById('plan-' + planId);
+    if (planRow) {
+      planRow.style.transition = 'opacity 0.2s';
+      planRow.style.opacity = '0';
+      setTimeout(() => {
+        planRow.remove();
+        // Hide plans section if no plans left
+        const plansList = document.getElementById('plansList');
+        if (plansList && plansList.querySelectorAll('.plan-row').length === 0) {
+          const plansSection = document.getElementById('plansSection');
+          if (plansSection) plansSection.style.display = 'none';
+        }
+      }, 200);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // ITEM INTERACTIONS
+  // ════════════════════════════════════════════════════════════════
+
+  function toggleCheck(item) {
+    item.classList.toggle('checked');
+    const check = item.querySelector('.g-check');
+    check.style.animation = 'none';
+    check.offsetHeight;
+    if (item.classList.contains('checked')) {
+      check.style.animation = 'checkPop 0.25s ease both';
+    }
+    
+    // Get the item ID and update the API
+    const itemId = item.getAttribute('data-item-id');
+    if (itemId) {
+      const isChecked = item.classList.contains('checked');
+      console.log(`📤 Updating item ${itemId} to is_checked=${isChecked}`);
+      fetch(`/scratch-list/${itemId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ is_checked: isChecked })
+      })
+      .then(response => {
+        console.log(`📨 Response status: ${response.status}`);
+        if (!response.ok) {
+          // Revert the UI change if the API call fails
+          item.classList.toggle('checked');
+          return response.json().then(data => {
+            console.error('❌ Failed to update item checked status:', data);
+          }).catch(() => {
+            console.error('❌ Failed to update item checked status (no response body)');
+          });
+        }
+        return response.json().then(data => {
+          console.log('✅ Item updated successfully:', data);
+        });
+      })
+      .catch(error => {
+        // Revert the UI change if there's a network error
+        item.classList.toggle('checked');
+        console.error('🌐 Error updating item:', error);
+      });
+    } else {
+      console.warn('⚠️ No item ID found for checkbox');
+    }
+    
+    updateCounts();
+  }
+
+  function removeItem(btn) {
+    const item = btn.closest('.g-item');
+    const itemId = item.getAttribute('data-item-id');
+    
+    // Delete via API if we have an item ID
+    if (itemId) {
+      console.log(`🗑️ Attempting to delete scratch item ${itemId}`);
+      fetch(`/scratch-list/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+      .then(response => {
+        console.log(`📥 Delete response: ${response.status}`);
+        if (!response.ok && response.status !== 404) {
+          return response.json().then(data => {
+            throw new Error(data.message || `HTTP ${response.status}`);
+          }).catch(error => {
+            throw new Error(`Failed to delete: ${error.message}`);
+          });
+        }
+        // Success - remove from DOM
+        item.style.transition = 'opacity 0.2s, transform 0.2s';
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(12px)';
+        setTimeout(() => {
+          item.remove();
+          updateCounts();
+        }, 200);
+      })
+      .catch(error => {
+        console.error(`❌ Error deleting item ${itemId}:`, error);
+        alert(`Failed to remove item: ${error.message}. Please try again.`);
+      });
+    } else {
+      // No item ID, just remove from DOM
+      console.warn('⚠️ No item ID found, removing from DOM only');
+      item.style.transition = 'opacity 0.2s, transform 0.2s';
+      item.style.opacity = '0';
+      item.style.transform = 'translateX(12px)';
+      setTimeout(() => {
+        item.remove();
+        updateCounts();
+      }, 200);
+    }
+  }
+
+  function updateCounts() {
+    const all = [...document.querySelectorAll('.g-item')];
+    const checked = all.filter(i => i.classList.contains('checked'));
+    
+    const totalPill = document.getElementById('totalPill');
+    const checkedPill = document.getElementById('checkedPill');
+    
+    if (totalPill) {
+      totalPill.textContent = all.length + ' item' + (all.length !== 1 ? 's' : '');
+    }
+    
+    if (checkedPill) {
+      if (checked.length) {
+        checkedPill.textContent = checked.length + ' checked off';
+        checkedPill.style.display = '';
+      } else {
+        checkedPill.style.display = 'none';
+      }
+    }
+
+    // Hide empty categories
+    document.querySelectorAll('.cat-section').forEach(sec => {
+      sec.style.display = sec.querySelectorAll('.g-item').length ? '' : 'none';
+    });
+
+    // Hide plans section if no items left
+    if (all.length === 0) {
+      const plansSection = document.getElementById('plansSection');
+      if (plansSection) {
+        plansSection.style.display = 'none';
+      }
+    }
+  }
+
+  function clearChecked() {
+    const checked = [...document.querySelectorAll('.g-item.checked')];
+    if (!checked.length) return;
+    if (!confirm('Remove ' + checked.length + ' checked item' + (checked.length > 1 ? 's' : '') + '?')) return;
+    
+    // Delete all checked items via API
+    let successCount = 0;
+    let failureCount = 0;
+    
+    const deletePromises = checked.map(item => {
+      const itemId = item.getAttribute('data-item-id');
+      if (!itemId) return Promise.resolve();
+      
+      return fetch(`/scratch-list/${itemId}`, { method: 'DELETE' })
+        .then(response => {
+          if (response.ok || response.status === 404) {
+            successCount++;
+          } else {
+            failureCount++;
+            return response.json().then(data => {
+              console.error(`Failed to delete item ${itemId}:`, data.message);
+            }).catch(() => {
+              console.error(`Failed to delete item ${itemId}: HTTP ${response.status}`);
+            });
+          }
+        })
+        .catch(error => {
+          failureCount++;
+          console.error(`Error deleting item ${itemId}:`, error);
+        });
+    });
+    
+    Promise.all(deletePromises).then(() => {
+      if (failureCount > 0) {
+        alert(`Failed to delete ${failureCount} item(s). Please check the console for details.`);
+      }
+      
+      checked.forEach(i => {
+        i.style.transition = 'opacity 0.15s';
+        i.style.opacity = '0';
+        setTimeout(() => i.remove(), 150);
+      });
+      setTimeout(updateCounts, 200);
+    });
+  }
+
+  function clearAll() {
+    const all = document.querySelectorAll('.g-item');
+    if (!all.length) return;
+    if (!confirm('Clear the entire grocery list?')) return;
+    
+    // Delete all items via API
+    let successCount = 0;
+    let failureCount = 0;
+    
+    const deletePromises = [...all].map(item => {
+      const itemId = item.getAttribute('data-item-id');
+      if (!itemId) return Promise.resolve();
+      
+      return fetch(`/scratch-list/${itemId}`, { method: 'DELETE' })
+        .then(response => {
+          if (response.ok || response.status === 404) {
+            successCount++;
+          } else {
+            failureCount++;
+            return response.json().then(data => {
+              console.error(`Failed to delete item ${itemId}:`, data.message);
+            }).catch(() => {
+              console.error(`Failed to delete item ${itemId}: HTTP ${response.status}`);
+            });
+          }
+        })
+        .catch(error => {
+          failureCount++;
+          console.error(`Error deleting item ${itemId}:`, error);
+        });
+    });
+    
+    Promise.all(deletePromises).then(() => {
+      if (failureCount > 0) {
+        alert(`Failed to delete ${failureCount} item(s). Please check the console for details.`);
+      }
+      
+      all.forEach(i => {
+        i.style.transition = 'opacity 0.15s';
+        i.style.opacity = '0';
+        setTimeout(() => i.remove(), 150);
+      });
+      setTimeout(updateCounts, 200);
+    });
+  }
+
+  let allIngredients = []; // Store all ingredients (with id and name) for filtering
+
+  function handleAddInputChange() {
+    // Filter the dropdown as user types
+    filterIngredientsDropdown(document.getElementById('addInput').value);
+    
+    // Clear the ingredient ID if user has modified the input
+    // This prevents old ingredient IDs from persisting when user types new text
+    // (selectIngredient will set it again if user picks from dropdown)
+    window.pendingIngredientId = null;
+  }
+
+  function populateIngredientsAutocomplete() {
+    // Fetch ingredients from API to populate the datalist
+    console.log('🔍 Fetching ingredients for autocomplete...');
+    fetch('/ingredients-list', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => {
+      console.log('📊 Ingredients response status:', response.status);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      console.log('✅ Ingredients loaded:', data);
+      
+      // Store all ingredients in memory for filtering (keep full objects with id and name)
+      if (Array.isArray(data)) {
+        allIngredients = data;
+      } else {
+        allIngredients = [];
+      }
+      
+      console.log('✅ Stored', allIngredients.length, 'ingredients for autocomplete');
+    })
+    .catch(error => {
+      console.error('❌ Error loading ingredients:', error);
+    });
+  }
+
+  function filterIngredientsDropdown(inputValue) {
+    const dropdown = document.getElementById('ingredientsDropdown');
+    const trimmed = inputValue.trim().toLowerCase();
+
+    if (trimmed.length === 0) {
+      dropdown.style.display = 'none';
+      return;
+    }
+
+    // Filter ingredients that match the input (allIngredients is now an array of objects with {name, id})
+    const matches = allIngredients.filter(ing => 
+      ing.name.toLowerCase().includes(trimmed)
+    ).slice(0, 10); // Show max 10 results
+
+    if (matches.length === 0) {
+      dropdown.style.display = 'none';
+      return;
+    }
+
+    // Build dropdown HTML
+    dropdown.innerHTML = matches.map((match, idx) => `
+      <div style="padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #f0f0f0; font-size: 14px; color: #333; transition: background 0.2s;" 
+           onmouseover="this.style.background='#f8f8f8'" 
+           onmouseout="this.style.background='white'"
+           onclick="selectIngredient('${match.name.replace(/'/g, "\\'")}', ${match.id})">
+        ${match.name}
+      </div>
+    `).join('');
+
+    dropdown.style.display = 'block';
+  }
+
+  function selectIngredient(name, ingredientId) {
+    document.getElementById('addInput').value = name;
+    document.getElementById('ingredientsDropdown').style.display = 'none';
+    // Store the ingredient ID so we know this is a real ingredient
+    window.pendingIngredientId = ingredientId;
+  }
+
+  function addItem() {
+    const input = document.getElementById('addInput');
+    const name = input.value.trim();
+    if (!name) return;
+    
+    // Store the item name and show quantity modal
+    // window.pendingIngredientId should be set if user selected from dropdown
+    // Clear it if user typed without selecting (it gets cleared on dropdown loss of focus too)
+    window.pendingItemName = name;
+    showQuantityModal();
+  }
+
+  function showQuantityModal() {
+    const modal = document.getElementById('quantityModal');
+    modal.style.display = 'flex';
+  }
+
+  function closeQuantityModal() {
+    document.getElementById('quantityModal').style.display = 'none';
+    window.pendingItemName = null;
+    window.pendingIngredientId = null;
+  }
+
+  function confirmAddItem(quantity) {
+    const name = window.pendingItemName;
+    const ingredientId = window.pendingIngredientId;
+    if (!name) return;
+
+    // Prepare data for API
+    const itemData = { quantity: quantity };
+    
+    // If this is a real ingredient from the dropdown, send ingredient_id
+    // Otherwise, send custom_name for items the user typed in
+    if (ingredientId) {
+      itemData.ingredient_id = ingredientId;
+      console.log('📍 Adding real ingredient with ID:', ingredientId, 'Name:', name);
+    } else {
+      itemData.custom_name = name;
+      console.log('✏️ Adding custom item:', name);
+    }
+
+    // Save to database via API
+    fetch('/scratch-list', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(itemData)
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Failed to save item');
+      return response.json();
+    })
+    .then(data => {
+      console.log('✅ Item saved successfully:', data);
+      
+      // Clear input and close modal
+      document.getElementById('addInput').value = '';
+      closeQuantityModal();
+      
+      // Refresh the entire grocery list to show item in correct category
+      // This ensures backend's categorization logic is what the user sees
+      setTimeout(() => {
+        location.reload();
+      }, 300);
+    })
+    .catch(error => {
+      console.error('Error saving item:', error);
+      alert('Failed to save item. Please try again.');
+      closeQuantityModal();
+    });
+  }
+
+  {% endautoescape %}
+</script>
+
+{% endblock %}

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+    <html>
+        <head>
+            <title>Dinnr</title>
+            {% if env == 'development' %}
+                <link rel="icon" type="image/x-icon" href="/static/images/dinnr_icon_dev.ico">
+            {% elif env == 'staging' %}
+                <link rel="icon" type="image/x-icon" href="/static/images/dinnr_icon_staging.ico">
+            {% else %}
+                <link rel="icon" type="image/x-icon" href="/static/images/dinnr_icon.ico">
+            {% endif %}
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300&family=DM+Sans:wght@300;400;500&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Limelight&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,700;1,9..144,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+            <link rel="stylesheet" href="/static/css/styles.css">
+            <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                :root {
+                {% if env != 'production' %}
+                    /* --primary-blue-header: #5b2fca; */
+                    /* --primary-header: #1d71a2; */
+                    --primary-header: #131313;
+                {% endif %}
+                }
+
+                /* ── AVATAR DROPDOWN ── */
+                .nav-avatar-wrap {
+                    position: relative;
+                }
+                .nav-avatar {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    cursor: pointer;
+                    border: 2px solid transparent;
+                    transition: border-color 0.18s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: #1a3a2a;
+                    flex-shrink: 0;
+                }
+                .nav-avatar:hover {
+                    border-color: rgba(26,58,42,0.3);
+                }
+                .nav-avatar img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+                .nav-avatar-fallback {
+                    font-size: 16px;
+                    color: #f5f0e8;
+                    user-select: none;
+                }
+                .nav-dropdown {
+                    position: absolute;
+                    top: calc(100% + 10px);
+                    right: 0;
+                    background: white;
+                    border-radius: 14px;
+                    box-shadow: 0 8px 30px rgba(26,58,42,0.15), 0 2px 8px rgba(26,58,42,0.08);
+                    border: 1.5px solid rgba(26,58,42,0.08);
+                    min-width: 170px;
+                    overflow: hidden;
+                    opacity: 0;
+                    transform: translateY(-6px);
+                    pointer-events: none;
+                    transition: opacity 0.18s ease, transform 0.18s ease;
+                    z-index: 200;
+                }
+                .nav-dropdown.open {
+                    opacity: 1;
+                    transform: translateY(0);
+                    pointer-events: all;
+                }
+                .nav-dropdown-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 12px 16px;
+                    font-family: 'DM Sans', sans-serif;
+                    font-size: 14px;
+                    font-weight: 500;
+                    color: #1a2620;
+                    text-decoration: none;
+                    cursor: pointer;
+                    transition: background 0.15s;
+                    border: none;
+                    background: none;
+                    width: 100%;
+                    text-align: left;
+                }
+                .nav-dropdown-item:hover {
+                    background: #eaf4ed;
+                }
+                .nav-dropdown-item.danger {
+                    color: #c8455a;
+                }
+                .nav-dropdown-item.danger:hover {
+                    background: #fdf4f5;
+                }
+                .nav-dropdown-divider {
+                    height: 1px;
+                    background: rgba(26,58,42,0.08);
+                    margin: 4px 0;
+                }
+                .nav-dropdown-icon {
+                    width: 18px;
+                    text-align: center;
+                    font-size: 15px;
+                }
+            </style>
+            {% if env == 'production' %}
+                <!-- <script async defer src="https://tools.luckyorange.com/core/lo.js?site-id=f6a68191"></script> -->
+            {% endif %}
+        </head>
+        <body>
+            <!-- NAV -->
+            <nav>
+                <a href="{{ url_for('routes.home') }}" class="nav-logo">
+                    <img src="/static/images/dinnr_icon_v2_outline.png" alt="Dinnr" class="nav-logo-img">
+                    <span class="nav-logo-text">Dinnr</span>
+                </a>
+
+                <!-- Avatar + dropdown (replaces old nav-links) -->
+                <div class="nav-avatar-wrap">
+                    <div class="nav-avatar" id="navAvatar" onclick="toggleNavDropdown()" title="Account">
+                        {% if current_user and current_user.profile_image %}
+                            <img src="{{ current_user.profile_image }}" alt="Profile">
+                        {% else %}
+                            <span class="nav-avatar-fallback">👤</span>
+                        {% endif %}
+                    </div>
+                    <div class="nav-dropdown" id="navDropdown">
+                        <a href="{{ url_for('routes.profile') }}" class="nav-dropdown-item">
+                            <span class="nav-dropdown-icon">⚙️</span> Profile &amp; Settings
+                        </a>
+                        <div class="nav-dropdown-divider"></div>
+                        <a href="{{ url_for('routes.contact') }}" class="nav-dropdown-item">
+                            <span class="nav-dropdown-icon">📬</span> Contact
+                        </a>
+                        <div class="nav-dropdown-divider"></div>
+                        <button class="nav-dropdown-item danger" onclick="logout()">
+                            <span class="nav-dropdown-icon">↩︎</span> Log out
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <header>
+                <div class="site-title">
+
+                </div>
+                
+            </header>
+
+            <div class="content-cont">
+            {% block content %}{% endblock %}
+
+            </div>
+
+
+            <!-- BOTTOM NAV -->
+            <div class="bottom-nav">
+              <div class="bn-inner">
+                <div class="bn-item {% if request.endpoint == 'routes.home' %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.home') }}'">
+                  <div class="bn-icon">🏠</div>
+                  <div class="bn-label">Home</div>
+                </div>
+                <div class="bn-item {% if request.endpoint in ['routes.meal_plans', 'routes.new_meal_plan'] %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.meal_plans') }}'">
+                  <div class="bn-icon">📋</div>
+                  <div class="bn-label">Plans</div>
+                </div>
+                <div class="bn-center">
+                  <div class="bn-fab" onclick="window.location.href='{{ url_for('routes.new_meal_plan') }}'">🎲</div>
+                </div>
+                <div class="bn-item {% if request.endpoint == 'routes.meals' %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.meals') }}'">
+                  <div class="bn-icon">🍽️</div>
+                  <div class="bn-label">Meals</div>
+                </div>
+                <div class="bn-item {% if request.endpoint in ['routes.grocery_list', 'routes.grocery_list_single_view', 'routes.grocery_list_view_combined'] %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.grocery_list') }}'">
+                  <div class="bn-icon">🛒</div>
+                  <div class="bn-label">Grocery</div>
+                </div>
+              </div>
+            </div> 
+
+        </body>
+
+        <script>
+            // Avatar dropdown toggle
+            function toggleNavDropdown() {
+                const dropdown = document.getElementById('navDropdown');
+                dropdown.classList.toggle('open');
+            }
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                const wrap = document.getElementById('navAvatar')?.closest('.nav-avatar-wrap');
+                if (wrap && !wrap.contains(e.target)) {
+                    document.getElementById('navDropdown')?.classList.remove('open');
+                }
+            });
+
+            // Logout
+            function logout() {
+                fetch("/logout", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.message) {
+                        document.cookie = 'access_token=; Max-Age=0; path=/';
+                        document.cookie = 'refresh_token=; Max-Age=0; path=/';
+                        window.location.href = "/login";
+                    } else {
+                        alert(data.error || "Logout failed.");
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Something went wrong during logout.");
+                });
+            }
+        </script>
+
+        <script src="/static/js/jquery.js"></script>
+        <script src="/static/js/scripts.js"></script>
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+
+    </html>
+

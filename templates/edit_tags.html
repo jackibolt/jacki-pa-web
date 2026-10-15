@@ -1,0 +1,71 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<a href="{{ url_for('routes.meals') }}" class="btn-back">← Meals</a>
+
+<div class="edit-tags-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">Manage</div>
+            <div class="page-title">Tags</div>
+        </div>
+    </div>
+
+    <!-- Info Text -->
+    {% if subscription_type == 'PREMIUM' %}
+        <div class="page-info">
+            <p class="info-primary">Create and manage custom meal tags</p>
+            <p class="info-secondary">Add new tags directly inside the <a href="{{ url_for('routes.meals') }}">meal form</a>.</p>
+        </div>
+
+        <div class="form-card">
+            <div class="tag-container">
+                <!-- Create Tag Row -->
+                <div class="tag-item" id="create-tag-row">
+                    <form class="tag-form" action="{{ url_for('routes.add_tag') }}" method="POST">
+                        <div class="tag-input-group">
+                            <input type="text" name="name" placeholder="Create a new tag..." class="tag-input" required>
+                        </div>
+                        <button type="submit" class="btn-add-tag">Add</button>
+                    </form>
+                </div>
+
+                {% for tag in tags %}
+                    <div class="tag-item">
+                        <form class="tag-form" action="{{ url_for('routes.edit_tag') }}" method="POST">
+                            <input type="hidden" name="original_name" value="{{ tag }}">
+                            <div class="tag-input-group">
+                                <input type="text" name="new_name" value="{{ tag }}" class="tag-input" required>
+                            </div>
+                            <button type="submit" class="btn-update-tag">Update</button>
+                        </form>
+                        <form action="{{ url_for('routes.delete_tag') }}" method="POST" style="margin: 0;">
+                            <input type="hidden" name="name" value="{{ tag }}">
+                            <button type="submit" class="btn-delete-tag">Delete</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% else %}
+        <div class="page-info">
+            <p class="info-primary">Premium Feature</p>
+            <p class="info-secondary">Custom tags are only available to premium users.</p>
+        </div>
+
+        <div class="form-card">
+            <div class="upgrade-prompt">
+                <div class="upgrade-icon">🔒</div>
+                <div class="upgrade-text">
+                    <p class="upgrade-title">Unlock Custom Tags</p>
+                    <p class="upgrade-description">Manage custom meal tags to organize your recipes better.</p>
+                </div>
+                <a href="{{ url_for('routes.profile') }}" class="btn btn-primary">Upgrade to Premium</a>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

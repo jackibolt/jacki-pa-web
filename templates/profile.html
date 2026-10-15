@@ -1,0 +1,402 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+  .profile-page {
+    --green: #1a3a2a; --green-mid: #2c5a40; --green-light: #3d7a57;
+    --bg: #eaf4ed; --cream: #f5f0e8; --cream-dark: #ede6d6;
+    --rose: #c8455a;
+    --text-dark: #1a2620; --text-mid: #4a6258; --text-light: #8aaa98;
+    --border: rgba(26,58,42,0.1);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .profile-page { font-family: 'DM Sans', sans-serif; }
+
+  .page-header { padding: 0 0 28px 0; margin-bottom: 20px; }
+  .page-eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--text-light); margin-bottom: 6px; }
+  .page-title { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 500; color: var(--green); letter-spacing: -0.5px; margin: 0; }
+
+  @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  .section-card {
+    background: white; border-radius: 16px; padding: 24px;
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 12px rgba(26,58,42,0.06), 0 4px 24px rgba(26,58,42,0.04);
+    margin-bottom: 20px; animation: slideUp 0.4s ease both;
+  }
+
+  .section-title {
+    font-family: 'Fraunces', serif; font-size: 16px; font-weight: 500;
+    color: var(--green); margin-bottom: 20px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .field { margin-bottom: 18px; }
+  .field:last-of-type { margin-bottom: 0; }
+  .field-label { font-size: 12px; font-weight: 600; letter-spacing: 0.5px; color: var(--text-mid); margin-bottom: 6px; display: block; }
+  .field-input {
+    width: 100%; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg);
+    font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text-dark);
+    outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .field-input:focus { border-color: var(--green-light); box-shadow: 0 0 0 3px rgba(61,122,87,0.1); background: white; }
+
+  .sub-row { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+  .sub-badge {
+    font-family: 'Fraunces', serif; font-size: 11px; font-weight: 500;
+    padding: 4px 11px; border-radius: 20px; letter-spacing: 0.5px;
+    background: var(--green); color: var(--cream);
+  }
+  .sub-badge.free { background: var(--cream-dark); color: var(--text-mid); }
+  .sub-renews { font-size: 12px; color: var(--text-light); font-style: italic; }
+
+  .pref-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--border);
+  }
+  .pref-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .pref-row:first-child { padding-top: 0; }
+  .pref-info { flex: 1; min-width: 0; text-align: left; }
+  .pref-label { font-size: 13px; font-weight: 500; color: var(--text-dark); margin-bottom: 3px; text-align: left; }
+  .pref-desc { font-size: 12px; color: var(--text-light); line-height: 1.5; }
+  .pref-desc a { color: var(--green-light); text-decoration: none; }
+  .pref-desc a:hover { text-decoration: underline; }
+  .pref-control { flex-shrink: 0; display: flex; align-items: center; }
+
+  .number-input-wrap { display: flex; align-items: center; gap: 0; border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--bg); width: fit-content; }
+  .number-btn { width: 32px; height: 36px; border: none; background: transparent; font-size: 14px; color: var(--text-mid); cursor: pointer; transition: all 0.15s; display: flex; align-items: center; justify-content: center; font-family: 'DM Sans', sans-serif; }
+  .number-btn:hover { background: var(--cream-dark); color: var(--green); }
+  .number-val { min-width: 40px; text-align: center; font-size: 14px; font-weight: 600; color: var(--text-dark); background: transparent; border: none; outline: none; font-family: 'DM Sans', sans-serif; padding: 0 4px; max-width: 15px; }
+  .number-val::-webkit-outer-spin-button, .number-val::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .number-val[type=number] { -moz-appearance: textfield; }
+  .number-divider { width: 1px; height: 20px; background: var(--border); }
+
+  .custom-checkbox { width: 20px; height: 20px; border-radius: 5px; border: 1.5px solid var(--border); background: var(--bg); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.18s; flex-shrink: 0; }
+  .custom-checkbox.checked { background: var(--green); border-color: var(--green); }
+  .custom-checkbox.checked::after { content: '✓'; color: var(--cream); font-size: 12px; font-weight: 700; }
+
+  .toggle-wrap { display: flex; align-items: center; gap: 9px; }
+  .toggle-label { font-size: 12px; font-weight: 500; color: var(--text-light); transition: color 0.2s; }
+  .toggle-label.active { color: var(--green); }
+  .toggle {
+    width: 42px; height: 24px; border-radius: 12px; background: var(--green);
+    position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 20px; height: 20px; border-radius: 50%; background: white;
+    transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  }
+  .toggle.repeat::after { transform: translateX(18px); }
+
+  .danger-zone { border: 1px solid rgba(200,69,90,0.15); border-radius: 16px; padding: 18px 24px; margin-bottom: 20px; animation: slideUp 0.4s ease 0.2s both; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+  .danger-zone-label { font-size: 13px; font-weight: 500; color: var(--text-dark); margin-bottom: 2px; }
+  .danger-zone-desc { font-size: 12px; color: var(--text-light); }
+
+  .btn-primary {
+    padding: 11px 26px; border-radius: 20px; border: none;
+    background: var(--green); color: var(--cream);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.18s;
+    box-shadow: 0 4px 14px rgba(26,58,42,0.25);
+  }
+  .btn-primary:hover { background: var(--green-mid); transform: translateY(-1px); }
+
+  .btn-secondary {
+    padding: 9px 18px; border-radius: 20px;
+    border: 1px solid var(--border); background: white;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    color: var(--text-mid); cursor: pointer; transition: all 0.18s;
+  }
+  .btn-secondary:hover { border-color: var(--green-light); color: var(--green); }
+
+  .btn-danger {
+    padding: 9px 18px; border-radius: 20px;
+    border: 1px solid rgba(200,69,90,0.25); background: white;
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    color: var(--rose); cursor: pointer; transition: all 0.18s;
+  }
+  .btn-danger:hover { background: #fdf4f5; border-color: var(--rose); }
+
+  .btn-premium {
+    padding: 9px 18px; border-radius: 20px; border: none;
+    background: var(--green); color: var(--cream);
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    text-decoration: none; display: inline-block;
+    cursor: pointer; transition: all 0.18s;
+  }
+  .btn-premium:hover { background: var(--green-mid); }
+
+  .save-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; animation: slideUp 0.4s ease 0.26s both; }
+
+  .free-trial-modal { 
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; 
+    background: rgba(0,0,0,0.4); z-index: 1000; align-items: center; justify-content: center;
+  }
+  .free-trial-modal-content {
+    background: white; padding: 28px; border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15); max-width: 380px; width: 90%;
+  }
+  .free-trial-modal h2 { font-family: 'Fraunces', serif; color: var(--green); margin-bottom: 16px; font-size: 18px; }
+  .free-trial-modal input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; font-size: 14px; }
+  .free-trial-modal-content > button { margin-right: 8px; margin-top: 12px; }
+  .free-trial-modal p { font-size: 12px; margin-top: 12px; }
+
+  @media (max-width: 640px) {
+    .danger-zone { flex-direction: column; align-items: flex-start; }
+    .save-row { flex-direction: column; }
+    .btn-primary { width: 100%; }
+  }
+</style>
+
+<div class="profile-page">
+  <div class="page-header">
+    <div class="page-eyebrow">Account</div>
+    <div class="page-title">Profile</div>
+  </div>
+
+  <form method="POST">
+    <!-- PERSONAL INFO -->
+    <div class="section-card">
+      <div class="section-title">Personal Info</div>
+      
+      <div class="field">
+        <label class="field-label">Name</label>
+        <input class="field-input" type="text" name="name" value="{{ user.name }}" required>
+      </div>
+      
+      <div class="field">
+        <label class="field-label">Email</label>
+        <input class="field-input" type="email" name="email" value="{{ user.email }}" required>
+      </div>
+      
+      <div class="field">
+        <label class="field-label">Subscription</label>
+        <div class="sub-row">
+          <span class="sub-badge{% if user.subscription.type == 'FREE' %} free{% endif %}">{{ user.subscription.type }}</span>
+          {% if user.subscription.type == 'PREMIUM' and user.subscription.end_date_clean %}
+            <span class="sub-renews">
+              {% if canceled %}<span style="color: var(--rose);">Canceled</span> — {% endif %}
+              {% if canceled %}Expires{% else %}Renews{% endif %} on {{ user.subscription.end_date_clean }}
+            </span>
+          {% endif %}
+        </div>
+        {% if user.subscription.type == 'FREE' %}
+          <div style="margin-top: 12px; display: flex; gap: 8px;">
+            <a href="{{ url_for('routes.start_subscription') }}" class="btn-premium">GET PREMIUM</a>
+            <button type="button" class="btn-secondary" id="freeTrial-trigger" style="cursor: pointer;">Get Free Trial</button>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- PREFERENCES -->
+    <div class="section-card">
+      <div class="section-title">Preferences</div>
+
+      <div class="pref-row">
+        <div class="pref-info">
+          <div class="pref-label">Max cuisine types per plan</div>
+          <div class="pref-desc">Meal plans will include <em>at most</em> this many meals of each cuisine type — e.g. 2 Italian, 2 Mexican.</div>
+        </div>
+        <div class="pref-control">
+          <div class="number-input-wrap">
+            <button type="button" class="number-btn" onclick="adjustNum(-1)">−</button>
+            <div class="number-divider"></div>
+            <input class="number-val" id="cuisineNum" type="number" name="cuisine_max_occurance" value="{{ user.preferences.cuisine_max_occurance or 2 }}" min="1" max="10">
+            <div class="number-divider"></div>
+            <button type="button" class="number-btn" onclick="adjustNum(1)">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pref-row">
+        <div class="pref-info">
+          <div class="pref-label">Use Preset Ingredients</div>
+          <div class="pref-desc">Include preset ingredients in your <a href="{{ url_for('routes.meals') }}">Ingredients</a> view and when adding to meals.</div>
+        </div>
+        <div class="pref-control">
+          <div class="custom-checkbox{% if user.preferences.show_default_ingredients %} checked{% endif %}" id="presetIngCheck" onclick="toggleCheck(this); syncHiddenCheckbox('show_default_ingredients', this)"></div>
+          <input type="hidden" name="show_default_ingredients" value="{% if user.preferences.show_default_ingredients %}on{% endif %}">
+        </div>
+      </div>
+
+      <!-- <div class="pref-row">
+        <div class="pref-info">
+          <div class="pref-label">Use Dinnr's Meals List</div>
+          <div class="pref-desc">View meals Dinnr preloaded to your account on the <a href="{{ url_for('routes.meals') }}">Meals</a> page and use them when generating plans.</div>
+        </div>
+        <div class="pref-control">
+          <div class="custom-checkbox{% if user.preferences.show_default_meals %} checked{% endif %}" id="dinnrMealsCheck" onclick="toggleCheck(this); syncHiddenCheckbox('show_default_meals', this)"></div>
+          <input type="hidden" name="show_default_meals" value="{% if user.preferences.show_default_meals %}on{% endif %}">
+        </div>
+      </div> -->
+
+      <div class="pref-row">
+        <div class="pref-info">
+          <div class="pref-label">Meal Fill Method</div>
+          <div class="pref-desc">How to fill meal plans if there aren't enough meals for the requested parameters.</div>
+        </div>
+        <div class="pref-control">
+          <div class="toggle-wrap">
+            <span class="toggle-label active" id="labelRandomize">Randomize</span>
+            <div class="toggle{% if user.preferences.repeat_extra_meals %} repeat{% endif %}" id="fillToggle" onclick="toggleFill()"></div>
+            <span class="toggle-label{% if user.preferences.repeat_extra_meals %} active{% endif %}" id="labelRepeat">Repeat</span>
+          </div>
+          <input type="hidden" name="repeat_extra_meals" id="repeatHidden" value="{% if user.preferences.repeat_extra_meals %}on{% endif %}">
+        </div>
+      </div>
+    </div>
+
+    <!-- PASSWORD SETTINGS -->
+    <div class="section-card">
+      <div class="section-title">Security</div>
+      
+      <button type="button" class="btn-secondary" id="changePasswordTrigger">Change Password</button>
+    </div>
+
+    <!-- DANGER ZONE -->
+    <div class="danger-zone">
+      <div>
+        <div class="danger-zone-label">Cancel Subscription</div>
+        <div class="danger-zone-desc">You'll lose access to Premium features at the end of your billing period.</div>
+      </div>
+      <button type="button" class="btn-danger" id="cancel-subscription-btn" style="{% if user.subscription.type == 'FREE' %}display:none;{% endif %}">Cancel Subscription</button>
+    </div>
+
+    <!-- SAVE -->
+    <div class="save-row">
+      <button type="button" class="btn-secondary" onclick="location.reload()">Discard changes</button>
+      <button type="submit" class="btn-primary" id="saveBtn">Save Changes</button>
+    </div>
+  </form>
+
+  <!-- FREE TRIAL MODAL -->
+  {% if user.subscription.type == 'FREE' %}
+  <div class="free-trial-modal" id="freeTrialModal">
+    <div class="free-trial-modal-content">
+      <h2>Enter Free Trial Code</h2>
+      <input type="text" id="freeTrialCodeInput" placeholder="Enter code here" />
+      <div>
+        <button type="button" class="btn-primary" id="submitFreeTrialBtn" style="margin-top: 12px;">Submit</button>
+        <button type="button" class="btn-secondary" id="closeFreeTrialModalBtn" style="margin-top: 12px; margin-left: 8px;">Close</button>
+      </div>
+      <p id="freeTrialMessage"></p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- CHANGE PASSWORD MODAL -->
+  <div class="free-trial-modal" id="changePasswordModal">
+    <div class="free-trial-modal-content">
+      <h2>Change Password</h2>
+      <input type="password" id="currentPasswordInput" placeholder="Current password" />
+      <input type="password" id="newPasswordInput" placeholder="New password" />
+      <input type="password" id="confirmPasswordInput" placeholder="Confirm new password" />
+      <div>
+        <button type="button" class="btn-primary" id="submitPasswordBtn" style="margin-top: 12px;">Change Password</button>
+        <button type="button" class="btn-secondary" id="closePasswordModalBtn" style="margin-top: 12px; margin-left: 8px;">Cancel</button>
+      </div>
+      <p id="passwordMessage" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Make template variables available to scripts.js
+  window.API_BASE_URL = "{{ api_base_url }}";
+  window.ACCESS_TOKEN = "{{ access_token }}";
+
+  // Password change modal handlers
+  const changePasswordModal = document.getElementById('changePasswordModal');
+  const changePasswordTrigger = document.getElementById('changePasswordTrigger');
+  const closePasswordModalBtn = document.getElementById('closePasswordModalBtn');
+  const submitPasswordBtn = document.getElementById('submitPasswordBtn');
+  const passwordMessage = document.getElementById('passwordMessage');
+
+  changePasswordTrigger.addEventListener('click', () => {
+    changePasswordModal.style.display = 'flex';
+    clearPasswordForm();
+  });
+
+  closePasswordModalBtn.addEventListener('click', () => {
+    changePasswordModal.style.display = 'none';
+    clearPasswordForm();
+  });
+
+  changePasswordModal.addEventListener('click', (e) => {
+    if (e.target === changePasswordModal) {
+      changePasswordModal.style.display = 'none';
+      clearPasswordForm();
+    }
+  });
+
+  submitPasswordBtn.addEventListener('click', async () => {
+    const currentPassword = document.getElementById('currentPasswordInput').value;
+    const newPassword = document.getElementById('newPasswordInput').value;
+    const confirmPassword = document.getElementById('confirmPasswordInput').value;
+
+    // Validation
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      showPasswordMessage('All fields are required', 'error');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showPasswordMessage('New passwords do not match', 'error');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      showPasswordMessage('New password must be at least 8 characters long', 'error');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${window.API_BASE_URL}/auth/change-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${window.ACCESS_TOKEN}`
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showPasswordMessage('✅ Password changed successfully!', 'success');
+        setTimeout(() => {
+          changePasswordModal.style.display = 'none';
+          clearPasswordForm();
+        }, 1500);
+      } else {
+        showPasswordMessage('❌ ' + (data.error || 'Failed to change password'), 'error');
+      }
+    } catch (error) {
+      showPasswordMessage('❌ An error occurred. Please try again.', 'error');
+      console.error('Error:', error);
+    }
+  });
+
+  function clearPasswordForm() {
+    document.getElementById('currentPasswordInput').value = '';
+    document.getElementById('newPasswordInput').value = '';
+    document.getElementById('confirmPasswordInput').value = '';
+    passwordMessage.textContent = '';
+    passwordMessage.style.color = '';
+  }
+
+  function showPasswordMessage(message, type) {
+    passwordMessage.textContent = message;
+    passwordMessage.style.color = type === 'error' ? 'var(--rose)' : 'var(--green)';
+  }
+</script>
+
+{% endblock %}

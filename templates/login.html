@@ -1,0 +1,228 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+  :root {
+    --green: #1a3a2a; --green-mid: #2c5a40; --green-light: #3d7a57;
+    --bg: #eaf4ed; --cream: #f5f0e8; --cream-dark: #ede6d6;
+    --rose: #c8455a; --rose-light: #e8687a;
+    --text-dark: #1a2620; --text-mid: #4a6258; --text-light: #8aaa98;
+    --border: rgba(26,58,42,0.1);
+  }
+
+  .login-page {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px 60px;
+  }
+
+  .login-wrap {
+    width: 100%; max-width: 420px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .login-hero { text-align: center; margin-bottom: 36px; }
+  .login-eyebrow {
+    font-size: 11px; font-weight: 500; letter-spacing: 2.5px;
+    text-transform: uppercase; color: var(--text-light); margin-bottom: 10px;
+  }
+  .login-title {
+    font-family: 'Fraunces', serif; font-size: 36px; font-weight: 500;
+    color: var(--green); letter-spacing: -0.5px; line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .login-title em { font-style: italic; color: var(--rose); }
+  .login-subtitle {
+    font-size: 14px; color: var(--text-light); line-height: 1.6;
+    font-weight: normal;
+  }
+
+  .login-card {
+    background: white; border-radius: 24px; padding: 32px;
+    box-shadow: 0 2px 6px rgba(26,58,42,0.06), 0 12px 32px rgba(26,58,42,0.08);
+    animation: fadeUp 0.5s ease 0.08s both;
+  }
+
+  .form-field { margin-bottom: 16px; }
+  .form-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text-mid);
+    margin-bottom: 7px; display: block;
+  }
+
+  .input-wrap { position: relative; }
+  .form-input {
+    width: 100%; padding: 13px 16px;
+    border: 1.5px solid var(--border); border-radius: 14px;
+    background: var(--bg); font-family: 'DM Sans', sans-serif;
+    font-size: 15px; color: var(--text-dark); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .form-input:focus {
+    border-color: var(--green-light); background: white;
+    box-shadow: 0 0 0 3px rgba(61,122,87,0.1);
+  }
+  .form-input::placeholder { color: var(--text-light); }
+  .form-input.has-icon { padding-right: 46px; }
+
+  .input-icon-btn {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-light); font-size: 16px; padding: 2px;
+    transition: color 0.15s; line-height: 1;
+  }
+  .input-icon-btn:hover { color: var(--text-mid); }
+
+  .remember-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px; margin-top: 4px;
+  }
+  .remember-label {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-mid); cursor: pointer;
+    user-select: none;
+  }
+  .remember-checkbox {
+    width: 18px; height: 18px; border-radius: 5px;
+    border: 1.5px solid var(--border); background: var(--bg);
+    appearance: none; cursor: pointer; transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; position: relative;
+  }
+  .remember-checkbox:checked {
+    background: var(--green); border-color: var(--green);
+  }
+  .remember-checkbox:checked::after {
+    content: '✓'; position: absolute;
+    color: white; font-size: 11px; font-weight: 600;
+  }
+  .forgot-link {
+    font-size: 13px; color: var(--text-light); text-decoration: none;
+    transition: color 0.15s;
+  }
+  .forgot-link:hover { color: var(--rose); }
+
+  .btn-login {
+    width: 100%; padding: 15px;
+    background: var(--green); border: none; border-radius: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500;
+    color: var(--cream); cursor: pointer;
+    box-shadow: 0 4px 14px rgba(26,58,42,0.25);
+    transition: all 0.18s; letter-spacing: 0.2px;
+    margin-bottom: 16px;
+  }
+  .btn-login:hover { background: var(--green-mid); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,58,42,0.3); }
+  .btn-login:active { transform: translateY(0); }
+
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 16px;
+  }
+  .divider-line { flex: 1; height: 1px; background: var(--border); }
+  .divider-text { font-size: 12px; color: var(--text-light); font-weight: 500; }
+
+  .btn-signup {
+    width: 100%; padding: 14px;
+    background: transparent; border: 1.5px solid var(--border); border-radius: 14px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500;
+    color: var(--text-mid); cursor: pointer;
+    transition: all 0.18s;
+  }
+  .btn-signup:hover { border-color: var(--green-light); color: var(--green); background: #f0faf4; }
+
+  .error-message {
+    font-size: 13px; color: var(--rose); margin-bottom: 16px;
+    padding: 10px 12px; background: rgba(200,69,90,0.08);
+    border-radius: 8px; border-left: 3px solid var(--rose);
+  }
+
+  /* Hide bottom nav on login page */
+  .bottom-nav {
+    display: none !important;
+  }
+
+  @media (max-width: 480px) {
+    .login-page { padding: 24px 16px 40px; align-items: flex-start; padding-top: 32px; }
+    .login-title { font-size: 30px; }
+    .login-card { padding: 24px 20px; border-radius: 20px; }
+  }
+</style>
+
+<div class="login-page">
+  <div class="login-wrap">
+
+    <!-- Hero -->
+    <div class="login-hero">
+      <div class="login-eyebrow">Welcome back</div>
+      <div class="login-title">Keep dinner<br><em>simple.</em></div>
+      <div class="login-subtitle">Sign in to your meal planning dashboard.</div>
+    </div>
+
+    <!-- Card -->
+    <div class="login-card">
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="error-message">
+            {{ messages[0] }}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('routes.login') }}">
+        <div class="form-field">
+          <label class="form-label" for="email">Email</label>
+          <input class="form-input" id="email" type="email" name="email" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+
+        <div class="form-field">
+          <label class="form-label" for="password">Password</label>
+          <div class="input-wrap">
+            <input class="form-input has-icon" id="password" type="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+            <button type="button" class="input-icon-btn" onclick="togglePassword()" id="eyeBtn" title="Show password">👁</button>
+          </div>
+        </div>
+
+        <div class="remember-row">
+          <label class="remember-label">
+            <input class="remember-checkbox" type="checkbox" name="remember_me" id="remember_me"> Remember me
+          </label>
+          <a class="forgot-link" href="{{ url_for('routes.forgot_password') }}">Forgot password?</a>
+        </div>
+
+        <button type="submit" class="btn-login">Sign In</button>
+      </form>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <span class="divider-text">New to Dinnr?</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <a href="{{ url_for('routes.new_user') }}" style="text-decoration: none;">
+        <button type="button" class="btn-signup">Create a free account</button>
+      </a>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function togglePassword() {
+    const input = document.getElementById('password');
+    const btn = document.getElementById('eyeBtn');
+    if (input.type === 'password') {
+      input.type = 'text';
+      btn.textContent = '🙈';
+    } else {
+      input.type = 'password';
+      btn.textContent = '👁';
+    }
+  }
+</script>
+{% endblock %}

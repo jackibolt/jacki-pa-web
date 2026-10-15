@@ -1,0 +1,477 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <a href="{{ url_for('routes.meals') }}" class="btn-back">← Meals</a>
+
+<div class="page">
+    <!-- <a href="{{ url_for('routes.meals') }}" class="btn-back">← Meals</a> -->
+    
+    <div class="page-header">
+        <div class="page-eyebrow">{{ 'Editing meal' if meal else 'Creating meal' }}</div>
+        <style>
+          .header-emoji-picker { }
+          .header-emoji-btn {
+            width: 48px; height: 48px; border-radius: 12px;
+            background: var(--color-bg); border: 2px solid rgba(26, 58, 42, 0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 28px; cursor: pointer; transition: all 0.18s;
+            flex-shrink: 0; position: relative; z-index: 10001;
+          }
+          .header-emoji-btn:hover { border-color: #3d7a57; background: rgba(61, 122, 87, 0.1); }
+          .header-emoji-btn.has-emoji { border-style: solid; border-color: rgba(26, 58, 42, 0.1); background: var(--color-bg); }
+          .header-emoji-btn-empty { font-size: 28px; color: rgba(26, 58, 42); }
+          .header-emoji-btn-badge {
+            position: absolute; bottom: -5px; right: -5px;
+            background: #3d7a57; color: white; width: 24px; height: 24px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: bold; opacity: 0; transition: opacity 0.18s;
+          }
+          .header-emoji-btn:hover .header-emoji-btn-badge { opacity: 1; }
+          .header-emoji-popover {
+            position: fixed !important; 
+            background: white; border-radius: 16px;
+            border: 1.5px solid rgba(26, 58, 42, 0.1);
+            box-shadow: 0 12px 40px rgba(26, 58, 42, 0.15);
+            padding: 14px; width: 260px; z-index: 2147483647 !important;
+            display: none; 
+            pointer-events: auto !important;
+            top: 0 !important;
+            left: 0 !important;
+          }
+          .header-emoji-popover.open { display: block !important; animation: popIn 0.18s ease both; }
+          @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(-4px); } to { opacity: 1; transform: none; } }
+          .header-popover-label { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: #8aaa98; margin-bottom: 10px; }
+          .header-emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 10px; }
+          .header-emoji-option {
+            width: 32px; height: 32px; border-radius: 8px; border: none;
+            background: none; font-size: 18px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.12s;
+          }
+          .header-emoji-option:hover { background: var(--color-bg); }
+          .header-emoji-option.selected { background: var(--color-bg); outline: 2px solid #3d7a57; }
+          .header-emoji-cat-label { font-size: 9px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: #8aaa98; margin: 10px 0 5px; padding-bottom: 4px; border-bottom: 1px solid rgba(26, 58, 42, 0.1); }
+          .header-emoji-cat-label:first-child { margin-top: 0; }
+          .header-popover-remove {
+            width: 100%; padding: 7px; border-radius: 8px; border: 1.5px solid rgba(26, 58, 42, 0.1);
+            background: none; font-family: 'DM Sans', sans-serif; font-size: 12px;
+            color: #8aaa98; cursor: pointer; transition: all 0.15s;
+          }
+          .header-popover-remove:hover { border-color: #c8455a; color: #c8455a; }
+          .page-header { overflow: visible !important; position: relative; z-index: 1001; }
+          .page { overflow: visible !important; }
+          .grid { overflow: visible !important; position: relative; z-index: 1; }
+          .card { overflow: visible !important; }
+        </style>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <div class="header-emoji-picker">
+              <div class="header-emoji-btn" id="headerEmojiBtn" onclick="toggleHeaderEmojiPopover()">
+                <span id="headerEmojiDisplay">{% if meal and meal.emoji %}{{ meal.emoji }}{% else %}<span class="header-emoji-btn-empty">🍽</span>{% endif %}</span>
+                <div class="header-emoji-btn-badge">✎</div>
+              </div>
+              <div class="header-emoji-popover" id="headerEmojiPopover">
+                <div class="header-popover-label">Pick an emoji</div>
+                <div style="max-height: 220px; overflow-y: auto; margin-bottom: 10px; padding-right: 2px;">
+                  <div class="header-emoji-cat-label">Cooked dishes</div>
+                  <div class="header-emoji-grid">
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍝' %}selected{% endif %}" onclick="setHeaderEmoji('🍝', this)">🍝</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍜' %}selected{% endif %}" onclick="setHeaderEmoji('🍜', this)">🍜</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍲' %}selected{% endif %}" onclick="setHeaderEmoji('🍲', this)">🍲</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍛' %}selected{% endif %}" onclick="setHeaderEmoji('🍛', this)">🍛</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍚' %}selected{% endif %}" onclick="setHeaderEmoji('🍚', this)">🍚</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍱' %}selected{% endif %}" onclick="setHeaderEmoji('🍱', this)">🍱</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🫕' %}selected{% endif %}" onclick="setHeaderEmoji('🫕', this)">🫕</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥘' %}selected{% endif %}" onclick="setHeaderEmoji('🥘', this)">🥘</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥣' %}selected{% endif %}" onclick="setHeaderEmoji('🥣', this)">🥣</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍕' %}selected{% endif %}" onclick="setHeaderEmoji('🍕', this)">🍕</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍳' %}selected{% endif %}" onclick="setHeaderEmoji('🍳', this)">🍳</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🧇' %}selected{% endif %}" onclick="setHeaderEmoji('🧇', this)">🧇</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥞' %}selected{% endif %}" onclick="setHeaderEmoji('🥞', this)">🥞</button>
+                  </div>
+                  <div class="header-emoji-cat-label">Meat & protein</div>
+                  <div class="header-emoji-grid">
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍗' %}selected{% endif %}" onclick="setHeaderEmoji('🍗', this)">🍗</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍖' %}selected{% endif %}" onclick="setHeaderEmoji('🍖', this)">🍖</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥩' %}selected{% endif %}" onclick="setHeaderEmoji('🥩', this)">🥩</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥓' %}selected{% endif %}" onclick="setHeaderEmoji('🥓', this)">🥓</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🌭' %}selected{% endif %}" onclick="setHeaderEmoji('🌭', this)">🌭</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍔' %}selected{% endif %}" onclick="setHeaderEmoji('🍔', this)">🍔</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍟' %}selected{% endif %}" onclick="setHeaderEmoji('🍟', this)">🍟</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥚' %}selected{% endif %}" onclick="setHeaderEmoji('🥚', this)">🥚</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🦐' %}selected{% endif %}" onclick="setHeaderEmoji('🦐', this)">🦐</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🦞' %}selected{% endif %}" onclick="setHeaderEmoji('🦞', this)">🦞</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🦀' %}selected{% endif %}" onclick="setHeaderEmoji('🦀', this)">🦀</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🐟' %}selected{% endif %}" onclick="setHeaderEmoji('🐟', this)">🐟</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍣' %}selected{% endif %}" onclick="setHeaderEmoji('🍣', this)">🍣</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍤' %}selected{% endif %}" onclick="setHeaderEmoji('🍤', this)">🍤</button>
+                  </div>
+                  <div class="header-emoji-cat-label">Sandwiches & wraps</div>
+                  <div class="header-emoji-grid">
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🌮' %}selected{% endif %}" onclick="setHeaderEmoji('🌮', this)">🌮</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🌯' %}selected{% endif %}" onclick="setHeaderEmoji('🌯', this)">🌯</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🫔' %}selected{% endif %}" onclick="setHeaderEmoji('🫔', this)">🫔</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥙' %}selected{% endif %}" onclick="setHeaderEmoji('🥙', this)">🥙</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥪' %}selected{% endif %}" onclick="setHeaderEmoji('🥪', this)">🥪</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🧆' %}selected{% endif %}" onclick="setHeaderEmoji('🧆', this)">🧆</button>
+                  </div>
+                  <div class="header-emoji-cat-label">Salads & veggies</div>
+                  <div class="header-emoji-grid">
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥗' %}selected{% endif %}" onclick="setHeaderEmoji('🥗', this)">🥗</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥦' %}selected{% endif %}" onclick="setHeaderEmoji('🥦', this)">🥦</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥬' %}selected{% endif %}" onclick="setHeaderEmoji('🥬', this)">🥬</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥑' %}selected{% endif %}" onclick="setHeaderEmoji('🥑', this)">🥑</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍆' %}selected{% endif %}" onclick="setHeaderEmoji('🍆', this)">🍆</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🌽' %}selected{% endif %}" onclick="setHeaderEmoji('🌽', this)">🌽</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🌶️' %}selected{% endif %}" onclick="setHeaderEmoji('🌶️', this)">🌶️</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🫑' %}selected{% endif %}" onclick="setHeaderEmoji('🫑', this)">🫑</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥕' %}selected{% endif %}" onclick="setHeaderEmoji('🥕', this)">🥕</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🥔' %}selected{% endif %}" onclick="setHeaderEmoji('🥔', this)">🥔</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🍅' %}selected{% endif %}" onclick="setHeaderEmoji('🍅', this)">🍅</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🧄' %}selected{% endif %}" onclick="setHeaderEmoji('🧄', this)">🧄</button>
+                    <button type="button" class="header-emoji-option {% if meal and meal.emoji == '🧅' %}selected{% endif %}" onclick="setHeaderEmoji('🧅', this)">🧅</button>
+                  </div>
+                </div>
+                <button type="button" class="header-popover-remove" onclick="removeHeaderEmoji()">Remove emoji</button>
+              </div>
+            </div>
+            <h1 class="page-title" style="margin: 0;">
+                {% set title = meal.name if meal else 'New Meal' %}
+                {% set words = title.split() %}
+                {% if words|length > 1 %}
+                    {{ ' '.join(words[:-1]) }} <em>{{ words[-1] }}</em>
+                {% else %}
+                    <em>{{ title }}</em>
+                {% endif %}
+            </h1>
+        </div>
+    </div>
+
+    <script>
+      function toggleHeaderEmojiPopover() {
+        const popover = document.getElementById('headerEmojiPopover');
+        if (popover.classList.contains('open')) {
+          popover.classList.remove('open');
+        } else {
+          popover.classList.add('open');
+          positionPopover();
+        }
+      }
+      function positionPopover() {
+        const btn = document.getElementById('headerEmojiBtn');
+        const popover = document.getElementById('headerEmojiPopover');
+        const rect = btn.getBoundingClientRect();
+        popover.style.top = (rect.bottom + 10) + 'px';
+        popover.style.left = rect.left + 'px';
+      }
+      function setHeaderEmoji(emoji, btn) {
+        document.getElementById('headerEmojiDisplay').textContent = emoji;
+        document.getElementById('headerEmojiBtn').classList.add('has-emoji');
+        document.querySelectorAll('.header-emoji-option').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        document.getElementById('headerEmojiPopover').classList.remove('open');
+        document.getElementById('mealEmoji').value = emoji;
+      }
+      function removeHeaderEmoji() {
+        document.getElementById('headerEmojiDisplay').innerHTML = '<span class="header-emoji-btn-empty">🍽</span>';
+        document.getElementById('headerEmojiBtn').classList.remove('has-emoji');
+        document.getElementById('headerEmojiPopover').classList.remove('open');
+        document.getElementById('mealEmoji').value = '';
+      }
+      document.addEventListener('click', function(e) {
+        const btn = document.getElementById('headerEmojiBtn');
+        const popover = document.getElementById('headerEmojiPopover');
+        if (btn && popover && !btn.contains(e.target) && !popover.contains(e.target)) {
+          popover.classList.remove('open');
+        }
+      });
+    </script>
+
+    <div class="grid">
+        <!-- Left Column: Meal Form -->
+        <div>
+            <div class="card">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--color-cream-dark);">
+                    <div class="card-title" style="margin: 0; padding: 0; border: none;">Meal Details</div>
+                    {% if meal %}
+                    <button type="button" class="star-btn" 
+                        onclick="toggleStar(this, {{ meal.id }}, {{ meal.is_favorite | lower }})"
+                        style="background: none; border: none; cursor: pointer; font-size: 24px; padding: 0; line-height: 1;">
+                        {% if meal.is_favorite %}
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                        {% else %}
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                        {% endif %}
+                    </button>
+                    {% endif %}
+                </div>
+
+                <form method="POST" action="{{ url_for('routes.update_meal', meal_id=meal.id) if meal else url_for('routes.create_meal') }}" id="{{ 'update-meal-form' if meal else 'create-meal-form' }}">
+                <input type="hidden" name="is_default" value="{{ meal.is_default }}">
+                <input type="hidden" id="mealEmoji" name="emoji" value="{{ meal.emoji if meal and meal.emoji else '' }}">
+                
+                <div class="field">
+                    <label class="field-label" for="name">Meal Name</label>
+                    <input type="text" name="name" id="name" class="field-input large" value="{{ meal.name if meal else '' }}" required placeholder="Name your meal">
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="cuisine">Cuisine</label>
+                    <select name="cuisine" id="cuisine" class="field-input">
+                        <option value="">Select cuisine</option>
+                        {% for cuisine in cuisines %}
+                            <option value="{{ cuisine.name }}"
+                                {% if meal and meal.cuisine == cuisine.name %}selected{% endif %}>
+                                {{ cuisine.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="field-label">Category</label>
+                    <div class="pill-group" id="category-pills">
+                        {% for category in categories %}
+                            <div class="pill {% if meal and category.name in meal.categories %}active{% endif %}" data-category="{{ category.name }}">
+                                {{ category.name }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <input type="hidden" name="category" id="category-input" value="{% if meal and meal.categories %}{{ ','.join(meal.categories) }}{% endif %}">
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="tags">Tags</label>
+                    <div class="tags-wrap" id="tag-container">
+                        <input type="text" id="tag-input" class="tags-input"
+                            {% if subscription_type == 'FREE' %}placeholder="Upgrade to PREMIUM" disabled {% else %}placeholder="Press Enter to add"{% endif %} />
+                    </div>
+                    <input type="hidden" name="tags" id="tags" value="{{ ', '.join(meal.tags) if meal and meal.tags else '' }}">
+                    <script>
+                        const availableTags = {{ tags | tojson | safe }};
+                    </script>
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="tidbits">Notes</label>
+                    <textarea name="tidbits" id="tidbits" class="field-input" placeholder="Add some notes, or don't. These notes are just for you.">{{ meal.tidbits if meal else '' }}</textarea>
+                </div>
+
+                <div class="field">
+                    <label class="field-label" for="website_link">Website / Recipe Link</label>
+                    <input type="url" name="website_link" id="website_link" class="field-input" value="{{ meal.website_link if meal else '' }}" placeholder="https://...">
+                </div>
+
+                <div class="field">
+                    <!-- <label class="field-label">Side Dish</label> -->
+                    <div class="toggle-row" style="border: none; padding: 0; margin-top: 0;">
+                        <div class="toggle-info">
+                            <div class="toggle-label">Side dish</div>
+                            <div class="toggle-sub">{% if subscription_type == 'FREE' %}Upgrade to PREMIUM{% else %}Mark this as a side rather than a main{% endif %}</div>
+                        </div>
+                        <label class="toggle">
+                            <input type="checkbox" name="is_side_dish" id="is_side_dish"
+                                {% if meal and meal.get('is_side_dish') %}checked{% endif %}
+                                {% if subscription_type == 'FREE' %}disabled{% endif %}>
+                            <span class="toggle-track"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <input type="hidden" id="ingredients" name="ingredients">
+            </form>
+
+            {% if meal %}
+            <form action="{{ url_for('routes.delete_meal', meal_id=meal.id) }}" method="post" style="display: none;" id="delete-meal-form">
+                <input type="hidden" name="_method" value="DELETE">
+            </form>
+            {% endif %}
+        </div>
+
+        <div class="actions">
+            <form style="display: contents;">
+                <button type="submit" form="{{ 'update-meal-form' if meal else 'create-meal-form' }}" class="btn btn-primary">
+                    {{ 'Save Changes' if meal else 'Create Meal & Add Ingredients →' }}
+                </button>
+
+                {% if meal %}
+                <button 
+                    type="submit"
+                    form="delete-meal-form"
+                    class="btn btn-danger"
+                    onclick="return confirm('Are you sure you want to delete this meal?')">
+                    Delete
+                </button>
+                {% endif %}
+                <a href="{{ url_for('routes.meals') }}" class="btn btn-ghost">Cancel</a>
+            </form>
+        </div>
+        </div>
+
+        <!-- Right Column: Ingredients -->
+        {% if meal %}
+        <div class="card ingredients-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                <h3 class="card-title" style="margin: 0; padding: 0; border: none;">Ingredients</h3>
+                <button type="button" class="btn btn-secondary" onclick="openAddIngredientModal()" style="font-size: 12px; padding: 7px 12px; flex-grow: 0;">+ Add</button>
+            </div>
+
+            <div class="ingredient-search-container">
+                <div class="ingredient-search">
+                    <span class="ingredient-search-icon">🔍</span>
+                    <input
+                        type="text"
+                        id="ingredient-search"
+                        placeholder="Search your ingredients"
+                        autocomplete="off"
+                    />
+                </div>
+                <div id="ingredient-suggestions" class="ingredient-suggestions"></div>
+            </div>
+
+            <!-- Quantity Legend -->
+            <div class="qty-legend">
+                <div class="qty-legend-item">
+                    <div class="qty-legend-dots">
+                        <div class="legend-dot on"></div>
+                        <div class="legend-dot"></div>
+                        <div class="legend-dot"></div>
+                    </div>
+                    A little
+                </div>
+                <div class="qty-legend-item">
+                    <div class="qty-legend-dots">
+                        <div class="legend-dot on"></div>
+                        <div class="legend-dot on"></div>
+                        <div class="legend-dot"></div>
+                    </div>
+                    Some
+                </div>
+                <div class="qty-legend-item">
+                    <div class="qty-legend-dots">
+                        <div class="legend-dot on"></div>
+                        <div class="legend-dot on"></div>
+                        <div class="legend-dot on"></div>
+                    </div>
+                    A lot
+                </div>
+            </div>
+
+            <div class="ingredients-list" id="ingredient-wrapper"
+                data-meal-id="{{ meal.id if meal else '' }}"
+                data-meal-name="{{ meal.name if meal else '' }}"
+                data-meal-cuisine-id="{{ meal.cuisine if meal else '' }}"
+                data-meal-cuisine-name="{{ meal.cuisine.name if meal and meal.cuisine else '' }}"
+                data-meal-category-ids='{{ meal.categories | tojson if meal and meal.categories else "[]" }}'
+                data-meal-category-names='{{ meal.category_names | tojson if meal and meal.category_names else "[]" }}'
+                data-meal-ingredients='{{ meal.ingredients | tojson if meal and meal.ingredients else "[]" }}'
+                data-access-token="{{ access_token }}"
+                data-api-base-url="{{ api_base_url }}">
+                
+                {% if meal and meal.ingredients %}
+                    {% for ingredient in meal.ingredients %}
+                    {% set qty_level = ingredient.quantity or 1 %}
+                    {% set qty_labels = {1: 'A little', 2: 'Some', 3: 'A lot'} %}
+                    <div class="ingredient-box" data-level="{{ qty_level }}">
+                        <div class="ingredient-name">
+                            <p>{{ ingredient.name }}</p>
+                            <p class="ingredient-category">{{ ingredient.category }}</p>
+                        </div>
+                        <div class="ingredient-dots" data-level="{{ qty_level }}">
+                            {% for i in range(1, 4) %}
+                                <button class="dot {% if i <= qty_level %}filled{% endif %}" 
+                                    data-quantity="{{ i }}"
+                                    data-ingredient-name="{{ ingredient.name }}"
+                                    title="{{ {1: 'A little', 2: 'Some', 3: 'A lot'}[i] }}">
+                                </button>
+                            {% endfor %}
+                        </div>
+                        <button class="btn-remove" data-ingredient-name="{{ ingredient.name }}">✖</button>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="text-align: center; color: rgba(245,240,232,0.5); padding: 20px 0; font-size: 13px;">No ingredients added yet</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Category pills
+    document.addEventListener('DOMContentLoaded', function () {
+        const pills = document.querySelectorAll('.pill');
+        const categoryInput = document.getElementById('category-input');
+
+        function updateCategories() {
+            const selected = Array.from(pills)
+                .filter(p => p.classList.contains('active'))
+                .map(p => p.dataset.category);
+            categoryInput.value = selected.join(',');
+        }
+
+        pills.forEach(pill => {
+            pill.addEventListener('click', function(e) {
+                e.preventDefault();
+                this.classList.toggle('active');
+                updateCategories();
+            });
+        });
+    });
+
+    // Tags
+    document.addEventListener('DOMContentLoaded', function () {
+        const tagInput = document.getElementById('tag-input');
+        const hiddenInput = document.getElementById('tags');
+        const container = document.getElementById('tag-container');
+        const tags = hiddenInput.value
+            ? hiddenInput.value.split(',').map(t => t.trim()).filter(t => t)
+            : [];
+
+        function updateHiddenInput() {
+            hiddenInput.value = tags.join(', ');
+        }
+
+        function renderTags() {
+            container.querySelectorAll('.tag-chip').forEach(el => el.remove());
+            tags.forEach(tag => {
+                const chip = document.createElement('span');
+                chip.className = 'tag-chip';
+                chip.textContent = tag;
+                const remove = document.createElement('span');
+                remove.className = 'tag-chip-x';
+                remove.textContent = '×';
+                remove.onclick = (e) => {
+                    e.preventDefault();
+                    const index = tags.indexOf(tag);
+                    if (index > -1) {
+                        tags.splice(index, 1);
+                        updateHiddenInput();
+                        renderTags();
+                    }
+                };
+                chip.appendChild(remove);
+                container.insertBefore(chip, tagInput);
+            });
+        }
+        tagInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                const newTag = tagInput.value.trim();
+                if (newTag && !tags.includes(newTag)) {
+                    tags.push(newTag);
+                    updateHiddenInput();
+                    renderTags();
+                }
+                tagInput.value = '';
+            }
+        });
+        renderTags();
+    });
+
+</script>
+
+<!-- INGREDIENT MODAL -->
+{% include "_ingredient_modal.html" %}
+
+{% endblock %}

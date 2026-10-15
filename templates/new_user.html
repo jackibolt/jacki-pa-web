@@ -1,0 +1,53 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="new-user-page">
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <div>
+            <div class="page-eyebrow">Join Us</div>
+            <div class="page-title">Create Account</div>
+        </div>
+    </div>
+
+    <!-- Info Text -->
+    <div class="page-info">
+        <p class="info-primary">Save your brain cells. Let us do the thinking.</p>
+        <p class="info-secondary">Sign up to start planning your meals.</p>
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-message">
+                {{ messages[0] }}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <div class="form-card">
+        <form class="new-user-form" method="POST" action="{{ url_for('routes.new_user') }}">
+            <div class="form-field">
+                <label class="form-label" for="name">Full Name</label>
+                <input type="text" name="name" id="name" class="form-input" placeholder="Enter your name" required>
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" for="email">Email</label>
+                <input type="email" name="email" id="email" class="form-input" placeholder="your@email.com" required>
+            </div>
+
+            <div class="form-field">
+                <label class="form-label" for="password">Password</label>
+                <input type="password" name="password" id="password" class="form-input" placeholder="Choose a strong password" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 24px;">
+                Create Account
+            </button>
+        </form>
+    </div>
+
+</div>
+
+{% endblock %}

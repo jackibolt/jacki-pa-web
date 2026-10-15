@@ -1,0 +1,802 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="page">
+  <!-- PAGE HEADER -->
+  <div class="page-header" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+    <div>
+      <div class="page-eyebrow">MANAGE</div>
+      <h1 class="page-title">Your Meals</h1>
+    </div>
+    <div class="header-actions" id="mealsHeaderActions">
+      <a href="{{ url_for('routes.bulk_add_meals') }}" class="btn btn-secondary">⚡ Bulk Add</a>
+      {% if subscription_type == 'PREMIUM' %}
+        <a href="{{ url_for('routes.edit_tags') }}" class="btn btn-secondary">🏷️ Edit Tags</a>
+      {% else %}
+        <a href="#" class="btn btn-secondary" style="opacity: 0.6; cursor: not-allowed;">🔒 Edit Tags</a>
+      {% endif %}
+      <a href="{{ url_for('routes.new_meal') }}" class="btn btn-primary">+ Add Meal</a>
+    </div>
+    <div class="header-actions" id="ingredientsHeaderActions" style="display: none;">
+      <button class="btn btn-primary" id="headerAddIngredientBtn">+ Add Ingredient</button>
+    </div>
+  </div>
+
+  <!-- TAB BAR -->
+  <div class="subtab-bar">
+    <div class="subtab active" data-tab="meals-panel">
+      Meals
+      <span class="subtab-count">{{ meals|length }}</span>
+    </div>
+    <div class="subtab" data-tab="ingredients-panel">
+      Ingredients
+      <span class="subtab-count">{{ ingredients|length }}</span>
+    </div>
+  </div>
+
+  <!-- MEALS PANEL -->
+  <div id="meals-panel" class="panel active">
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="mealSearch" class="search-input" placeholder="Search meals...">
+      <button class="search-clear" id="searchClear" style="display: none;">✕</button>
+    </div>
+    <select class="filter-select" id="cuisineFilter">
+      <option value="">Cuisine</option>
+      {% set cuisine_set = [] %}
+      {% for meal in meals %}
+        {% if meal.cuisine not in cuisine_set %}
+          <option value="{{ meal.cuisine }}">{{ meal.cuisine }}</option>
+          {% do cuisine_set.append(meal.cuisine) %}
+        {% endif %}
+      {% endfor %}
+    </select>
+    <select class="filter-select" id="categoryFilter">
+      <option value="">Category</option>
+      {% set category_set = [] %}
+      {% for meal in meals %}
+        {% for cat in meal.categories %}
+          {% if cat not in category_set %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% do category_set.append(cat) %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+    </select>
+    <button class="btn btn-ghost" id="resetFiltersBtn">✕</button>
+  </div>
+
+  <!-- FILTER PILLS -->
+  <div class="filter-pills">
+    <div class="filter-pill active" data-filter="all">All meals</div>
+    <div class="filter-pill" data-filter="fav">Favorites</div>
+    <div class="filter-divider"></div>
+    {% set tag_set_pills = [] %}
+    {% for meal in meals %}
+      {% for tag in meal.tags %}
+        {% if tag not in tag_set_pills %}
+          {% if subscription_type == 'PREMIUM' %}
+            <div class="filter-pill" data-tag="{{ tag }}">{{ tag }}</div>
+            {% do tag_set_pills.append(tag) %}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+    <span class="results-meta" id="resultsMeta">{{ meals|length }} meals</span>
+  </div>
+
+  <!-- MEAL GRID -->
+  <div class="meal-grid" id="mealGrid">
+    {% if meals %}
+      {% for meal in meals %}
+        <div class="meal-card" 
+             data-name="{{ meal.name | lower }}" 
+             data-cuisine="{{ meal.cuisine }}" 
+             data-categories="{{ meal.categories|join(',') }}" 
+             data-is-side="{{ 'true' if meal.is_side_dish else 'false' }}" 
+             data-tags="{{ meal.tags|join(',') }}"
+             data-fav="{{ 'true' if meal.is_favorite else 'false' }}"
+             data-dinnr="{{ 'true' if meal.is_default else 'false' }}">
+          
+          <button class="fav-btn" onclick="toggleStar(this, {{ meal.id }}, {{ 'true' if meal.is_favorite else 'false' }})" style="position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; padding: 4px;">
+            {% if meal.is_favorite %}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+            {% else %}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+            {% endif %}
+          </button>
+          
+          <div class="meal-card-top">
+            <a href="{{ url_for('routes.meal_detail', meal_id=meal.id) }}" class="meal-name-link">
+              <h3 class="meal-name">
+                {% if meal.emoji %}<span class="meal-emoji">{{ meal.emoji }}</span>{% endif %}
+                {% set words = meal.name.split(' ') %}
+                {% if words|length > 1 %}
+                  {{ ' '.join(words[:-1]) }} <em>{{ words[-1] }}</em>
+                {% else %}
+                  <em>{{ meal.name }}</em>
+                {% endif %}
+              </h3>
+            </a>
+          </div>
+
+          <div class="meal-meta">
+            {% if meal.is_side_dish %}
+              <span class="meta-tag meta-side">🥗 Side dish</span>
+            {% endif %}
+            <span class="meta-tag meta-cuisine">{{ meal.cuisine }}</span>
+            {% if meal.categories|length > 0 %}
+              <span class="meta-tag meta-category">{{ meal.categories|join(', ') }}</span>
+            {% endif %}
+            {% for tag in meal.tags %}
+              <span class="meta-tag meta-tag-label">{{ tag }}</span>
+            {% endfor %}
+          </div>
+
+          <div class="meal-card-footer">
+            <a href="{{ url_for('routes.meal_detail', meal_id=meal.id) }}" class="card-btn card-btn-view">View</a>
+            <form action="{{ url_for('routes.delete_meal', meal_id=meal.id) }}" method="post" class="card-btn-form">
+              <input type="hidden" name="_method" value="DELETE">
+              <button type="submit" class="card-btn card-btn-delete" onclick="return confirm('Are you sure you want to delete this meal?')">Delete</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+    <!-- PAGINATION -->
+    <div class="pagination-controls" id="mealsPaginationControls">
+      <button class="page-btn" id="mealsPrevBtn">← Previous</button>
+      <div class="page-numbers" id="mealsPageNumbers"></div>
+      <button class="page-btn" id="mealsNextBtn">Next →</button>
+    </div>
+
+    <!-- EMPTY STATE -->
+    {% if not meals %}
+      <div class="empty-state" style="display: block;">
+        <div class="empty-state-icon">🍽️</div>
+        <div class="empty-state-text">No meals found. <a href="{{ url_for('routes.new_meal') }}">Add one to get started!</a></div>
+      </div>
+    {% endif %}
+
+    <!-- LEGEND -->
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-badge">🥗</span>
+        <span><strong>Side dish</strong> — designated as a side rather than a main</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- INGREDIENTS PANEL -->
+  <div id="ingredients-panel" class="panel">
+    <!-- SEARCH TOOLBAR -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" id="ingSearch" placeholder="Search ingredients...">
+      </div>
+      <button class="btn btn-ghost" id="ingSearchClear" style="display: none;">✕</button>
+    </div>
+
+    <!-- CATEGORY JUMP BAR -->
+    <div class="category-jump">
+      <div class="category-jump-inner" id="jumpBar">
+        {% set category_icons = {
+          'Produce': '🥬',
+          'Dairy & Eggs': '🧀',
+          'Protein': '🥩',
+          'Frozen Goods': '❄️',
+          'Cans & Jars': '🥫',
+          'Bakery & Grains': '🍞',
+          'Spices & Seasonings': '🌶️',
+          'Breakfast & Cereals': '🥐',
+          'Dry Goods & Pasta': '🌾',
+          'Condiments & Sauces': '🍯',
+          'Beverages': '🍵',
+          'Snacks & Sweets': '🍪'
+        } %}
+        <button class="jump-pill jump-pill-all active" data-category="all">All</button>
+        {% set category_order = [
+          'Produce',
+          'Dairy & Eggs',
+          'Protein',
+          'Frozen Goods',
+          'Cans & Jars',
+          'Bakery & Grains',
+          'Dry Goods & Pasta',
+          'Spices & Seasonings',
+          'Breakfast & Cereals',
+          'Condiments & Sauces',
+          'Beverages',
+          'Snacks & Sweets'
+        ] %}
+        {% for category in category_order %}
+          <button class="jump-pill" data-category="{{ category | lower }}">{{ category_icons.get(category, '🥕') }} {{ category | truncate(18, True) }}</button>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- COLLAPSE/EXPAND ALL -->
+    <div class="ing-toolbar">
+      <span class="ing-results" id="ingResults">{{ ingredients|length }} ingredients</span>
+      <button class="toggle-all-btn" id="expandAllBtn">Expand all</button>
+      <button class="toggle-all-btn" id="collapseAllBtn">Collapse all</button>
+    </div>
+
+    <!-- INGREDIENT CATEGORY TEMPLATE FOR EDIT FORM -->
+    <script type="text/template" id="categoryOptionsTemplate">
+      {% for cat in categories %}
+        <option value="{{ cat.name }}">{{ cat.name }}</option>
+      {% endfor %}
+    </script>
+
+    <!-- INGREDIENTS LIST -->
+    <div class="ingredients-list-container">
+      {% if ingredients %}
+        {% set category_icons = {
+          'Produce': '🥬',
+          'Dairy & Eggs': '🧀',
+          'Protein': '🥩',
+          'Frozen Goods': '❄️',
+          'Cans & Jars': '🥫',
+          'Bakery & Grains': '🍞',
+          'Spices & Seasonings': '🌶️',
+          'Breakfast & Cereals': '🥐',
+          'Dry Goods & Pasta': '🌾',
+          'Condiments & Sauces': '🍯',
+          'Beverages': '🍵',
+          'Snacks & Sweets': '🍪'
+        } %}
+        
+        {% set category_classes = {
+          'Produce': 'icon-produce',
+          'Dairy & Eggs': 'icon-dairy',
+          'Protein': 'icon-protein',
+          'Frozen Goods': 'icon-frozen',
+          'Cans & Jars': 'icon-cans',
+          'Bakery & Grains': 'icon-bakery',
+          'Spices & Seasonings': 'icon-spices',
+          'Breakfast & Cereals': 'icon-breakfast',
+          'Dry Goods & Pasta': 'icon-dry',
+          'Condiments & Sauces': 'icon-condiments',
+          'Beverages': 'icon-beverages',
+          'Snacks & Sweets': 'icon-snacks'
+        } %}
+        
+        {% for category, items in ingredients | groupby('category_name') %}
+          <div class="category-section" data-category="{{ category | lower }}" id="cat-{{ category | lower | replace(' ', '-') | replace('&', '') | replace(' ', '') }}">
+            <div class="category-header" onclick="toggleCategory(this.parentElement)">
+              <span class="category-name">{{ category_icons.get(category, '🥕') }} {{ category }}</span>
+              <span class="category-count">{{ items | length }}</span>
+              <div class="category-preview">
+                {% for ing in items[:3] %}
+                  <span class="preview-chip">{{ ing.name }}</span>
+                {% endfor %}
+                {% if items | length > 3 %}
+                  <span class="preview-chip">+{{ items | length - 3 }} more</span>
+                {% endif %}
+              </div>
+              <span class="category-chevron">▼</span>
+            </div>
+            <div class="category-body">
+              <div class="ingredient-grid">
+                {% for ing in items %}
+                  <div class="ingredient-card visible" data-name="{{ ing.name | lower }}" data-category="{{ ing.category_name }}">
+                    <div class="ingredient-icon {{ category_classes.get(category, '') }}" title="{{ ing.category_name }}">{{ category_icons.get(category, '🥕') }}</div>
+                    <div class="ingredient-text">
+                      <div class="ingredient-name">{{ ing.name }}</div>
+                      <div class="ingredient-cat">{{ ing.category_name }}</div>
+                    </div>
+                    <div class="ingredient-actions">
+                      {% if ing.is_user_ingredient %}
+                        <button type="button" class="icon-btn icon-btn-edit edit-ingred-btn" title="Edit" data-id="{{ ing.id }}" data-name="{{ ing.name }}" data-category="{{ ing.category_name }}">✎</button>
+                        <form action="{{ url_for('routes.delete_ingredient', ingredient_id=ing.id) }}" method="post" style="display: inline;" onsubmit="saveActiveTab()">
+                          <input type="hidden" name="_method" value="DELETE">
+                          <button type="submit" class="icon-btn icon-btn-delete" title="Delete" onclick="return confirm('Delete this ingredient?')">×</button>
+                        </form>
+                      {% else %}
+                        <img src="/static/images/dinnr_icon_v2_outline.png" title="Default ingredient" class="lock-icon" style="width: 16px; height: 16px; opacity: 0.6;">
+                      {% endif %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>No ingredients found. <button type="button" id="addFirstIngredientBtn" class="link-btn">Add one to get started!</button></p>
+      {% endif %}
+    </div>
+
+    <!-- EMPTY STATE -->
+    {% if not ingredients %}
+      <div class="empty-state" style="display: block;">
+        <div class="empty-state-icon">🥕</div>
+        <div class="empty-state-text">No ingredients found. <button type="button" id="addFirstIngredientBtn2" class="link-btn">Add one to get started!</button></div>
+      </div>
+    {% endif %}
+  </div>
+
+  {% include "_ingredient_modal.html" %}
+</div>
+
+<script>
+  // ========================
+  // GLOBAL HELPER FUNCTIONS
+  // ========================
+  
+  // Ingredients helper functions (defined globally so they're accessible)
+  function toggleCategory(section) {
+    section.classList.toggle('open');
+  }
+
+  function expandAll() {
+    document.querySelectorAll('.category-section').forEach(section => {
+      section.classList.add('open');
+    });
+  }
+
+  function collapseAll() {
+    document.querySelectorAll('.category-section').forEach(section => {
+      section.classList.remove('open');
+    });
+  }
+
+  function filterCategory(cat, pill) {
+    if (pill) {
+      document.querySelectorAll('.jump-pill').forEach(p => {
+        p.classList.remove('active');
+      });
+      pill.classList.add('active');
+      document.querySelectorAll('.category-section').forEach(section => {
+        const sectionCat = section.dataset.category;
+        const isMatch = sectionCat === cat;
+        section.style.display = isMatch ? 'block' : 'none';
+        if (isMatch) {
+          section.classList.add('open');
+        } else {
+          section.classList.remove('open');
+        }
+      });
+    } else {
+      document.querySelectorAll('.category-section').forEach(section => {
+        const sectionCat = section.dataset.category;
+        const isMatch = sectionCat === cat;
+        section.style.display = isMatch ? 'block' : 'none';
+        if (isMatch) {
+          section.classList.add('open');
+        } else {
+          section.classList.remove('open');
+        }
+      });
+    }
+  }
+
+  function searchIngredients(query) {
+    const searchText = query.toLowerCase();
+    const ingredients = document.querySelectorAll('.ingredient-card');
+    let hasVisibleInSection = {};
+
+    // If no search text, show all cards
+    if (!searchText) {
+      ingredients.forEach(card => {
+        card.classList.add('visible');
+      });
+    } else {
+      // Filter cards based on search
+      ingredients.forEach(card => {
+        const name = card.dataset.name;
+        const category = card.dataset.category;
+        const matches = name.includes(searchText) || category.toLowerCase().includes(searchText);
+        if (matches) {
+          card.classList.add('visible');
+        } else {
+          card.classList.remove('visible');
+        }
+      });
+    }
+
+    // Update category section visibility and open matching sections
+    const categorySections = document.querySelectorAll('.category-section');
+    categorySections.forEach(section => {
+      const visibleCards = section.querySelectorAll('.ingredient-card.visible');
+      const hasVisibleCards = visibleCards.length > 0;
+      
+      section.style.display = hasVisibleCards ? 'block' : 'none';
+      
+      // If searching and has matches, open the section
+      if (searchText && hasVisibleCards) {
+        section.classList.add('open');
+      } else if (!searchText) {
+        // When search is cleared, close all sections
+        section.classList.remove('open');
+      }
+    });
+
+    // Update results count
+    const visibleCount = document.querySelectorAll('.ingredient-card.visible').length;
+    document.getElementById('ingResults').textContent = visibleCount + ' ingredient' + (visibleCount !== 1 ? 's' : '');
+  }
+
+  function clearSearch() {
+    document.getElementById('ingSearch').value = '';
+    searchIngredients('');
+    document.getElementById('ingSearchClear').style.display = 'none';
+  }
+
+  // ========================
+  // ALL SETUP CODE IN DOMContentLoaded
+  // ========================
+  document.addEventListener('DOMContentLoaded', function() {
+    // ------ TAB RESTORATION ------
+    let activeTab = null;
+    
+    // Check URL hash first (highest priority)
+    if (window.location.hash === '#ingredients') {
+      activeTab = 'ingredients-panel';
+    } else {
+      // Otherwise check localStorage
+      const savedTab = localStorage.getItem('activeTab');
+      if (savedTab) {
+        activeTab = savedTab;
+      }
+    }
+    
+    if (activeTab) {
+      const tabElement = document.querySelector(`[data-tab="${activeTab}"]`);
+      if (tabElement) {
+        // Remove active from all tabs and panels
+        document.querySelectorAll('.subtab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        
+        // Add active to the saved tab
+        tabElement.classList.add('active');
+        document.getElementById(activeTab).classList.add('active');
+        
+        // Update header actions visibility
+        const mealsHeaderActions = document.getElementById('mealsHeaderActions');
+        const ingredientsHeaderActions = document.getElementById('ingredientsHeaderActions');
+        
+        if (activeTab === 'meals-panel') {
+          mealsHeaderActions.style.display = 'flex';
+          ingredientsHeaderActions.style.display = 'none';
+        } else if (activeTab === 'ingredients-panel') {
+          mealsHeaderActions.style.display = 'none';
+          ingredientsHeaderActions.style.display = 'flex';
+        }
+        
+        // Clear the localStorage so it doesn't interfere with normal navigation
+        localStorage.removeItem('activeTab');
+      }
+    }
+
+    // ------ TAB SWITCHING ------
+    document.querySelectorAll('.subtab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        const tabName = this.dataset.tab;
+        
+        // Update active tab
+        document.querySelectorAll('.subtab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Update active panel
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.getElementById(tabName).classList.add('active');
+        
+        // Update header actions
+        const mealsHeaderActions = document.getElementById('mealsHeaderActions');
+        const ingredientsHeaderActions = document.getElementById('ingredientsHeaderActions');
+        
+        if (tabName === 'meals-panel') {
+          mealsHeaderActions.style.display = 'flex';
+          ingredientsHeaderActions.style.display = 'none';
+        } else if (tabName === 'ingredients-panel') {
+          mealsHeaderActions.style.display = 'none';
+          ingredientsHeaderActions.style.display = 'flex';
+        }
+      });
+    });
+
+    // ------ MEALS TAB FUNCTIONALITY ------
+    const ITEMS_PER_PAGE = 18;
+    let mealsCurrentPage = 1;
+
+    const searchInput = document.getElementById('mealSearch');
+    const cuisineFilter = document.getElementById('cuisineFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const resetBtn = document.getElementById('resetFiltersBtn');
+    const resultsMeta = document.getElementById('resultsMeta');
+    const mealGrid = document.getElementById('mealGrid');
+    const filterPills = document.querySelectorAll('.filter-pill[data-filter]');
+    const tagPills = document.querySelectorAll('.filter-pill[data-tag]');
+    const mealsPaginationControls = document.getElementById('mealsPaginationControls');
+    const mealsPrevBtn = document.getElementById('mealsPrevBtn');
+    const mealsNextBtn = document.getElementById('mealsNextBtn');
+    const mealsPageNumbers = document.getElementById('mealsPageNumbers');
+
+    let activeFilter = 'all';
+    let activeTag = '';
+
+    filterPills.forEach(pill => {
+      pill.addEventListener('click', function() {
+        filterPills.forEach(p => p.classList.remove('active', 'active-rose'));
+        this.classList.add('active');
+        activeFilter = this.dataset.filter;
+        mealsCurrentPage = 1;
+        applyMealsFilters();
+      });
+    });
+
+    tagPills.forEach(pill => {
+      pill.addEventListener('click', function() {
+        this.classList.toggle('active-rose');
+        activeTag = this.classList.contains('active-rose') ? this.dataset.tag : '';
+        mealsCurrentPage = 1;
+        applyMealsFilters();
+      });
+    });
+
+    function updateMealsPagination(visibleCards) {
+      const allCards = document.querySelectorAll('.meal-card');
+      const totalPages = Math.ceil(visibleCards.length / ITEMS_PER_PAGE);
+      
+      // First, hide ALL cards
+      allCards.forEach(card => {
+        card.style.display = 'none';
+      });
+      
+      if (totalPages <= 1) {
+        mealsPaginationControls.style.display = 'none';
+        // Show visible cards on page 1
+        visibleCards.forEach(card => {
+          card.style.display = '';
+        });
+        return;
+      }
+      
+      mealsPaginationControls.style.display = 'flex';
+      
+      // Show/hide cards based on current page
+      visibleCards.forEach((card, index) => {
+        const pageIndex = Math.floor(index / ITEMS_PER_PAGE);
+        card.style.display = pageIndex === (mealsCurrentPage - 1) ? '' : 'none';
+      });
+      
+      // Update buttons
+      mealsPrevBtn.disabled = mealsCurrentPage === 1;
+      mealsNextBtn.disabled = mealsCurrentPage === totalPages;
+      
+      // Update page numbers
+      mealsPageNumbers.innerHTML = '';
+      for (let i = 1; i <= totalPages; i++) {
+        const pageBtn = document.createElement('button');
+        pageBtn.className = 'page-btn' + (i === mealsCurrentPage ? ' active' : '');
+        pageBtn.textContent = i;
+        pageBtn.addEventListener('click', () => {
+          mealsCurrentPage = i;
+          applyMealsFilters();
+        });
+        mealsPageNumbers.appendChild(pageBtn);
+      }
+    }
+
+    function applyMealsFilters() {
+      const allCards = document.querySelectorAll('.meal-card');
+      const searchText = searchInput.value.toLowerCase();
+      const cuisine = cuisineFilter.value;
+      const category = categoryFilter.value;
+      const visibleCards = [];
+
+      allCards.forEach(card => {
+        let show = true;
+
+        // Search filter
+        if (searchText && !card.dataset.name.includes(searchText)) {
+          show = false;
+        }
+
+        // Cuisine filter
+        if (cuisine && card.dataset.cuisine !== cuisine) {
+          show = false;
+        }
+
+        // Category filter
+        if (category && !card.dataset.categories.includes(category)) {
+          show = false;
+        }
+
+        // Active filter pills
+        if (activeFilter === 'fav' && card.dataset.fav !== 'true') {
+          show = false;
+        }
+
+        // Tag filter from pills
+        if (activeTag && !card.dataset.tags.includes(activeTag)) {
+          show = false;
+        }
+
+        if (show) {
+          visibleCards.push(card);
+        }
+      });
+
+      resultsMeta.textContent = visibleCards.length + ' meal' + (visibleCards.length !== 1 ? 's' : '');
+      updateMealsPagination(visibleCards);
+    }
+
+    searchInput.addEventListener('input', applyMealsFilters);
+    searchInput.addEventListener('input', function() {
+      const clearBtn = document.getElementById('searchClear');
+      clearBtn.style.display = this.value ? 'block' : 'none';
+    });
+    
+    const searchClear = document.getElementById('searchClear');
+    searchClear.addEventListener('click', function() {
+      searchInput.value = '';
+      searchInput.focus();
+      this.style.display = 'none';
+      mealsCurrentPage = 1;
+      applyMealsFilters();
+    });
+    
+    cuisineFilter.addEventListener('change', applyMealsFilters);
+    categoryFilter.addEventListener('change', applyMealsFilters);
+
+    mealsPrevBtn.addEventListener('click', () => {
+      if (mealsCurrentPage > 1) {
+        mealsCurrentPage--;
+        applyMealsFilters();
+        window.scrollTo(0, 0);
+      }
+    });
+
+    mealsNextBtn.addEventListener('click', () => {
+      const allCards = document.querySelectorAll('.meal-card');
+      const searchText = searchInput.value.toLowerCase();
+      const cuisine = cuisineFilter.value;
+      const category = categoryFilter.value;
+      let visibleCount = 0;
+
+      allCards.forEach(card => {
+        let show = true;
+        if (searchText && !card.dataset.name.includes(searchText)) show = false;
+        if (cuisine && card.dataset.cuisine !== cuisine) show = false;
+        if (category && !card.dataset.categories.includes(category)) show = false;
+        if (activeFilter === 'fav' && card.dataset.fav !== 'true') show = false;
+        if (activeTag && !card.dataset.tags.includes(activeTag)) show = false;
+        if (show) visibleCount++;
+      });
+
+      const totalPages = Math.ceil(visibleCount / ITEMS_PER_PAGE);
+      if (mealsCurrentPage < totalPages) {
+        mealsCurrentPage++;
+        applyMealsFilters();
+        window.scrollTo(0, 0);
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      cuisineFilter.value = '';
+      categoryFilter.value = '';
+      filterPills.forEach(p => p.classList.remove('active', 'active-rose'));
+      filterPills[0].classList.add('active');
+      tagPills.forEach(p => p.classList.remove('active-rose'));
+      activeFilter = 'all';
+      activeTag = '';
+      mealsCurrentPage = 1;
+      applyMealsFilters();
+    });
+
+    // Initialize meals pagination on page load
+    applyMealsFilters();
+
+    // ------ INGREDIENTS TAB FUNCTIONALITY ------
+    // Event listeners for ingredients
+    const ingSearch = document.getElementById('ingSearch');
+    const ingSearchClear = document.getElementById('ingSearchClear');
+    const expandAllBtn = document.getElementById('expandAllBtn');
+    const collapseAllBtn = document.getElementById('collapseAllBtn');
+
+    if (ingSearch) {
+      ingSearch.addEventListener('input', function() {
+        searchIngredients(this.value);
+        ingSearchClear.style.display = this.value ? 'block' : 'none';
+      });
+    }
+
+    if (ingSearchClear) {
+      ingSearchClear.addEventListener('click', clearSearch);
+    }
+
+    if (expandAllBtn) {
+      expandAllBtn.addEventListener('click', expandAll);
+    }
+
+    if (collapseAllBtn) {
+      collapseAllBtn.addEventListener('click', collapseAll);
+    }
+
+    // Jump pill click handlers
+    document.querySelectorAll('.jump-pill').forEach(pill => {
+      pill.addEventListener('click', function() {
+        const cat = this.dataset.category;
+        filterCategory(cat, this);
+      });
+    });
+
+    // Header Add Ingredient button
+    const headerAddIngredientBtn = document.getElementById('headerAddIngredientBtn');
+    if (headerAddIngredientBtn) {
+      headerAddIngredientBtn.addEventListener('click', function() {
+        openAddIngredientModal();
+      });
+    }
+
+    // Handle empty state buttons
+    const addFirstBtn = document.getElementById('addFirstIngredientBtn');
+    if (addFirstBtn) {
+      addFirstBtn.addEventListener('click', function() {
+        openAddIngredientModal();
+      });
+    }
+    const addFirstBtn2 = document.getElementById('addFirstIngredientBtn2');
+    if (addFirstBtn2) {
+      addFirstBtn2.addEventListener('click', function() {
+        openAddIngredientModal();
+      });
+    }
+
+    // Edit ingredient handler
+    document.addEventListener('click', function (e) {
+      if (e.target && e.target.classList.contains('edit-ingred-btn')) {
+        const btn = e.target;
+        const box = btn.closest('.ingredient-card');
+
+        const id = btn.dataset.id;
+        const name = btn.dataset.name;
+        const category = btn.dataset.category;
+
+        const categoryOptionsHtml = document.getElementById('categoryOptionsTemplate').innerHTML;
+        const updatedCategoryOptions = categoryOptionsHtml.replace(
+          `value="${category}"`,
+          `value="${category}" selected`
+        );
+
+        const formElement = document.createElement('form');
+        formElement.method = 'POST';
+        formElement.action = `/ingredients/${id}/edit`;
+        formElement.classList.add('ingredient-card', 'inline-form-box');
+        formElement.id = 'inlineIngredientEditForm';
+
+        formElement.innerHTML = `
+          <div class="ingredient-info">
+            <input type="text" name="name" value="${name}" required />
+            <select name="category_name" required>
+              ${updatedCategoryOptions}
+            </select>
+          </div>
+          <div class="ingredient-actions">
+            <button type="submit" class="btn btn-primary">Update</button>
+            <button type="button" class="btn btn-secondary cancel-edit-btn">Cancel</button>
+          </div>
+        `;
+
+        box.innerHTML = '';
+        box.appendChild(formElement);
+
+        box.querySelector('.cancel-edit-btn').addEventListener('click', () => {
+          location.reload();
+        });
+      }
+    });
+  }); // End single DOMContentLoaded listener
+</script>
+
+{% endblock %}

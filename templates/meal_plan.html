@@ -1,0 +1,792 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<style>
+  /* ── SUCCESS BANNER (first visit only, ?new=true) ── */
+  .success-banner {
+    display: none;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    background: var(--green);
+    border-radius: 18px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 20px rgba(26,58,42,0.25);
+    animation: slideUp 0.4s ease both;
+    position: relative;
+  }
+  .success-banner.visible { display: flex; }
+  .success-banner-left { flex: 1; min-width: 0; }
+  .success-banner-emoji { font-size: 24px; margin-bottom: 8px; display: block; }
+  .success-banner-title {
+    font-family: 'Fraunces', serif; font-size: 18px; font-weight: 500;
+    color: var(--cream); margin-bottom: 4px;
+  }
+  .success-banner-sub { font-size: 13px; color: rgba(245,240,232,0.6); margin-bottom: 14px; }
+  .success-banner-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn-success-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 20px; border: none;
+    background: var(--cream); color: var(--green);
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.18s; white-space: nowrap;
+    text-decoration: none;
+  }
+  .btn-success-primary:hover { background: white; transform: translateY(-1px); }
+  .btn-success-dismiss {
+    display: inline-flex; align-items: center;
+    padding: 9px 14px; border-radius: 20px;
+    border: 1px solid rgba(245,240,232,0.25); background: transparent;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+    color: rgba(245,240,232,0.6); cursor: pointer; transition: all 0.18s;
+  }
+  .btn-success-dismiss:hover { border-color: rgba(245,240,232,0.5); color: var(--cream); }
+  .success-banner-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+    border: 1px solid rgba(245,240,232,0.2); background: transparent;
+    color: rgba(245,240,232,0.5); font-size: 14px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .success-banner-close:hover { background: rgba(245,240,232,0.1); color: var(--cream); }
+  /* ── DELETE BUTTON ── */
+  .btn-delete-plan {
+    display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    padding: 8px 14px; border-radius: 20px; margin-top: 4px;
+    background: white; border: 1.5px solid rgba(26,58,42,0.1);
+    font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+    color: var(--text-light); cursor: pointer; transition: all 0.18s;
+  }
+  .btn-delete-plan:hover { border-color: var(--rose); color: var(--rose); background: #fdf4f5; }
+  /* Ensure buttons align to the right */
+  .page-header { display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 16px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+
+<a href="{{ url_for('routes.meal_plans') }}" class="btn-back">← Meal Plans</a>
+
+<div class="page meal-plan-page">
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <div class="page-eyebrow">Meal plan</div>
+            <div class="page-title">{{ meal_plan.meal_plan_name }}</div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <a class="btn-edit-plan" href="{{ url_for('routes.meal_plan_result', meal_plan_id=meal_plan.meal_plan_id) }}">✏️ Edit meal selection</a>
+            <button class="btn-delete-plan" onclick="deletePlan()" title="Delete plan">🗑 Delete</button>
+        </div>
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div class="plan-progress">
+        <div class="plan-progress-meta">
+            <span class="plan-progress-count"><span id="progressLabel">0 of {{ meal_plan.meals | length }} cooked</span></span>
+            <span id="progressPct">0%</span>
+        </div>
+        <div class="plan-progress-track">
+            <div class="plan-progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- SUCCESS BANNER — shown only on ?new=true -->
+    <div class="success-banner" id="successBanner">
+        <div class="success-banner-left">
+            <span class="success-banner-emoji">🎉</span>
+            <div class="success-banner-title">Your meal plan is ready!</div>
+            <div class="success-banner-sub">Add your ingredients to the grocery list and you're all set.</div>
+            <div class="success-banner-actions">
+                <button class="btn-success-primary" onclick="addToGroceryList(); setTimeout(() => switchTab('groceries', document.querySelectorAll('.subtab')[1]), 100); dismissSuccessBanner()">🛒 Add to Grocery List</button>
+                <button class="btn-success-dismiss" onclick="dismissSuccessBanner()">Maybe later</button>
+            </div>
+        </div>
+        <button class="success-banner-close" onclick="dismissSuccessBanner()" title="Dismiss">✕</button>
+    </div>
+
+    <!-- SUBTAB BAR FOR SWITCHING BETWEEN MEALS AND GROCERIES -->
+    <div class="subtab-bar">
+        <button class="subtab active" onclick="switchTab('meals', this)">🍽️ Meals <span class="subtab-count">{{ meal_plan.meals | length }}</span></button>
+        <button class="subtab" onclick="switchTab('groceries', this)">🛒 Grocery Items <span class="subtab-count" id="groceryCount">0</span></button>
+    </div>
+
+    <!-- MEALS PANEL -->
+    <div class="panel active" id="panel-meals">
+        <!-- MEALS LIST -->
+        <div class="meals-list" id="mealsList">
+            {% if meal_plan.meals %}
+                <div class="section-label" id="remainingLabel" style="animation-delay: 0.06s">This week</div>
+                
+                {% for meal in meal_plan.meals %}
+                <div class="meal-row {% if meal.is_checked %}cooked{% endif %}" 
+                     data-id="{{ meal.id }}" 
+                     draggable="true"
+                     style="animation-delay: {{ loop.index0 * 0.05 + 0.1 }}s">
+                    
+                    <div class="meal-row-inner">
+                        <!-- DRAG HANDLE -->
+                        <div class="drag-handle">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        
+                        <!-- CHECKBOX -->
+                        <div class="meal-check" onclick="toggleCooked(event)">✓</div>
+                        
+                        <!-- MEAL INFO -->
+                        <div class="meal-info">
+                            <div class="meal-name">
+                                <a href="{{ url_for('routes.meal_detail', meal_id=meal.id) }}">
+                                    {% set parts = meal.name.rsplit(' ', 1) %}
+                                    {% if parts|length > 1 %}
+                                        <span class="multi-word">{{ parts[0] }} <em>{{ parts[1] }}</em></span>
+                                    {% else %}
+                                        <span class="single-word">{{ meal.name }}</span>
+                                    {% endif %}
+                                </a>
+                            </div>
+                            {% if meal.side_dish %}
+                            <div class="meal-meta">
+                                <span class="side-badge">
+                                    <span class="side-badge-icon">+</span>
+                                    {{ meal.side_dish.name }}
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- FAVORITE STAR -->
+                        <div class="meal-fav" onclick="toggleStar(this, {{ meal.id }}, {{ 'true' if meal.is_favorite else 'false' }})">
+                            {% if meal.is_favorite %}
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                            {% else %}
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <div class="section-label" id="cookedLabel" class="hidden" style="animation-delay: 0.12s">Cooked ✓</div>
+            {% else %}
+                <p>No meals found in this plan.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- GROCERIES PANEL -->
+    <div class="panel" id="panel-groceries">
+        <!-- Hidden element for grocery count tracking -->
+        <div id="totalGroceries" class="hidden">0</div>
+        <!-- Store added_to_grocery_list timestamp -->
+        <div id="addedToGroceryListTimestamp" class="hidden">{{ meal_plan.added_to_grocery_list or '' }}</div>
+        
+        <!-- Banner -->
+        <div class="groc-banner" id="grocBanner">
+            <div class="groc-banner-text">
+                <div class="groc-banner-label" id="grocBannerLabel">Add items to Grocery List</div>
+                <div class="groc-banner-sub" id="grocBannerSub">Push all ingredients from this plan</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;align-items:center;flex-shrink:0">
+                <button class="btn-add-to-list" id="grocAddBtn" onclick="addToGroceryList()">+ Add to Grocery List</button>
+                <a class="groc-banner-link" id="grocViewLink" href="{{ url_for('routes.grocery_list') }}" style="display:none">View Grocery List →</a>
+                <button class="btn-readd-link" id="grocReaddBtn" onclick="readdToGroceryList()" style="display:none">↺ Re-add all items</button>
+            </div>
+        </div>
+
+        <!-- Category jump bar -->
+        <div class="cat-jump">
+            <div class="cat-jump-inner" id="categoryJump">
+                <!-- Jump pills will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <div id="gcats">
+            <!-- Grocery categories will be populated by JavaScript -->
+        </div>
+    </div>
+
+</div>
+
+<!-- BOTTOM NAV (Mobile) -->
+<div class="bottom-nav">
+    <div class="bn-inner">
+        <div class="bn-item"><div class="bn-icon">🏠</div><div class="bn-label">Home</div></div>
+        <div class="bn-item"><div class="bn-icon">🍽️</div><div class="bn-label">Meals</div></div>
+        <div class="bn-center"><div class="bn-fab">🎲</div></div>
+        <div class="bn-item active"><div class="bn-icon">📋</div><div class="bn-label">Plans</div></div>
+        <div class="bn-item"><div class="bn-icon">👤</div><div class="bn-label">Profile</div></div>
+    </div>
+</div>
+
+<script>
+    const totalMeals = {{ meal_plan.meals | length }};
+    let dragSrc = null;
+    let groceryData = {}; // Will be populated via API or data
+
+    // ════════════════════════════════════════════════════════════════
+    // GROCERY LIST BANNER
+    // ════════════════════════════════════════════════════════════════
+
+    function addToGroceryList() {
+        const btn = document.getElementById('grocAddBtn');
+        const mealPlanId = {{ meal_plan.meal_plan_id }};
+        
+        // Disable button and show loading state
+        btn.disabled = true;
+        btn.textContent = '⏳ Adding...';
+        
+        // Call Flask route to add meal plan ingredients to scratch list
+        fetch(`/meal_plan/${mealPlanId}/add_to_scratch`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Call API to mark as added to grocery list
+                markMealPlanAddedToGroceryList(mealPlanId, data.count);
+            } else {
+                btn.textContent = '+ Add to Grocery List';
+                btn.disabled = false;
+                btn.style.display = 'inline-flex';
+                alert('Error: ' + (data.message || 'Failed to add items'));
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            btn.textContent = '+ Add to Grocery List';
+            btn.disabled = false;
+            btn.style.display = 'inline-flex';
+            alert('Error adding items to grocery list');
+        });
+    }
+
+    function markMealPlanAddedToGroceryList(mealPlanId, count) {
+        const btn = document.getElementById('grocAddBtn');
+        const sub = document.getElementById('grocBannerSub');
+        const label = document.getElementById('grocBannerLabel');
+        const viewLink = document.getElementById('grocViewLink');
+        const readdBtn = document.getElementById('grocReaddBtn');
+        
+        // Call Flask route to update the timestamp
+        const url = `/meal_plan/${mealPlanId}/mark_added_to_grocery`;
+        console.log('Calling endpoint:', url);
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json().then(data => ({ status: response.status, data }));
+        })
+        .then(({ status, data }) => {
+            console.log('Response data:', data);
+            if (status === 200 && data.success) {
+                // Update UI for added state using inline styles
+                btn.style.display = 'none';
+            readdBtn.style.display = 'inline-flex';
+            label.textContent = 'Items added to Grocery List';
+            sub.textContent = `Last added just now · ${count} items`;
+            viewLink.style.display = 'inline-block';
+                document.getElementById('addedToGroceryListTimestamp').textContent = data.added_at;
+            } else {
+                btn.textContent = '+ Add to Grocery List';
+                btn.disabled = false;
+                btn.style.display = 'inline-flex';
+                const errMsg = data.message || 'Failed to mark as added';
+                console.error('Error response:', errMsg);
+                alert('Error: ' + errMsg);
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            btn.textContent = '+ Add to Grocery List';
+            btn.disabled = false;
+            btn.style.display = 'inline-flex';
+            alert('Error updating grocery list status: ' + error.message);
+        });
+    }
+
+    function readdToGroceryList() {
+        // Reset to initial state and call addToGroceryList
+        const btn = document.getElementById('grocAddBtn');
+        const readdBtn = document.getElementById('grocReaddBtn');
+        const viewLink = document.getElementById('grocViewLink');
+        
+        btn.style.display = 'inline-flex';
+        readdBtn.style.display = 'none';
+        viewLink.style.display = 'none';
+        
+        // Call the add function
+        addToGroceryList();
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // INITIALIZE BUTTON STATE BASED ON TIMESTAMP
+    // ════════════════════════════════════════════════════════════════
+
+    function initializeGroceryListButtonState() {
+        const timestamp = document.getElementById('addedToGroceryListTimestamp').textContent.trim();
+        const btn = document.getElementById('grocAddBtn');
+        const readdBtn = document.getElementById('grocReaddBtn');
+        const label = document.getElementById('grocBannerLabel');
+        const sub = document.getElementById('grocBannerSub');
+        const viewLink = document.getElementById('grocViewLink');
+        
+        if (timestamp) {
+            // Parse the timestamp to show when it was added
+            try {
+                const date = new Date(timestamp);
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHours = Math.floor(diffMins / 60);
+                const diffDays = Math.floor(diffHours / 24);
+                
+                let timeAgo = 'just now';
+                if (diffMins > 1 && diffMins < 60) {
+                    timeAgo = `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+                } else if (diffHours > 0 && diffHours < 24) {
+                    timeAgo = `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                } else if (diffDays > 0) {
+                    timeAgo = `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                }
+                
+                // Update UI using inline styles
+                btn.style.display = 'none';
+                readdBtn.style.display = 'inline-flex';
+                label.textContent = 'Items added to Grocery List';
+                sub.textContent = `Added ${timeAgo}`;
+                viewLink.style.display = 'inline-block';
+            } catch (e) {
+                console.error('Error parsing timestamp:', e);
+            }
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // TAB SWITCHING FUNCTIONALITY
+    // ════════════════════════════════════════════════════════════════
+    
+    function switchTab(tab, btn) {
+        // Hide all panels
+        document.querySelectorAll('.panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        
+        // Deactivate all tabs
+        document.querySelectorAll('.subtab').forEach(t => {
+            t.classList.remove('active');
+        });
+        
+        // Show selected panel
+        const panel = document.getElementById('panel-' + tab);
+        if (panel) panel.classList.add('active');
+        
+        // Activate selected tab
+        if (btn) btn.classList.add('active');
+        
+        // Initialize groceries data if viewing groceries panel for first time
+        if (tab === 'groceries' && !groceryData.initialized) {
+            initializeGroceryData();
+            groceryData.initialized = true;
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // GROCERY LIST FUNCTIONALITY
+    // ════════════════════════════════════════════════════════════════
+    
+    function initializeGroceryData() {
+        // Fetch grocery data from API or use meal data to build grocery list
+        const mealPlanId = {{ meal_plan.meal_plan_id }};
+        
+        // Call API to get groceries for this meal plan
+        fetch(`/meal_plan/${mealPlanId}/groceries`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.groceries) {
+                renderGroceryList(data.groceries);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching groceries:', error);
+            renderGroceryList([]); // Show empty list on error
+        });
+    }
+
+    function renderGroceryList(groceries) {
+        // Group groceries by category
+        const categories = {};
+        
+        groceries.forEach(item => {
+            const cat = item.category || 'Other';
+            if (!categories[cat]) {
+                categories[cat] = [];
+            }
+            categories[cat].push(item);
+        });
+        
+        // Render categories
+        const gcatsContainer = document.getElementById('gcats');
+        gcatsContainer.innerHTML = '';
+        
+        const jumpContainer = document.getElementById('categoryJump');
+        jumpContainer.innerHTML = '';
+        
+        let totalCount = 0;
+        
+        Object.keys(categories).sort().forEach((catName, idx) => {
+            const items = categories[catName];
+            totalCount += items.length;
+            
+            // Create category jump pill
+            const jumpPill = document.createElement('button');
+            jumpPill.className = 'jump-pill' + (idx === 0 ? ' active' : '');
+            jumpPill.textContent = catName;
+            jumpPill.onclick = () => jumpToCategory(catName, jumpPill);
+            jumpContainer.appendChild(jumpPill);
+            
+            // Create category section
+            const gcat = document.createElement('div');
+            gcat.className = 'gcat open';
+            gcat.id = 'gcat-' + catName.toLowerCase().replace(/\s+/g, '-');
+            
+            const gcatHdr = document.createElement('div');
+            gcatHdr.className = 'gcat-hdr';
+            gcatHdr.onclick = () => toggleGcat(gcatHdr);
+            
+            // Build preview text
+            const previewItems = items.slice(0, 3).map(item => item.name).join('</span><span>');
+            const previewHTML = items.length > 0 ? `<div class="gcat-preview"><span>${previewItems}</span></div>` : '';
+            
+            gcatHdr.innerHTML = `
+                <span class="gcat-name">${catName}</span>
+                ${previewHTML}
+                <div class="gcat-count">${items.length}</div>
+                <div class="gcat-chevron">▼</div>
+            `;
+            
+            const gcatBody = document.createElement('div');
+            gcatBody.className = 'gcat-body';
+            
+            const giList = document.createElement('div');
+            giList.className = 'gi-list';
+            
+            items.forEach(item => {
+                const giDiv = document.createElement('div');
+                giDiv.className = 'gi' + (item.checked ? ' checked' : '');
+                
+                // Build meal details HTML from meal_details array
+                const mealsHTML = item.meal_details && item.meal_details.length > 0 ? 
+                    item.meal_details.map(m => `<span class="gi-meal"><span>${m.meal_name}</span>${renderDots(Math.ceil(m.quantity) || 1)}</span>`).join('') 
+                    : '<span class="gi-meal"><span>Not used</span></span>';
+                
+                // Determine quantity level for styling
+                const avgQty = item.average_quantity || item.total_quantity || 0;
+                let qtyLevel = 'medium';
+                let qtyLabel = 'medium';
+                
+                if (avgQty <= 0.5) {
+                    qtyLevel = 'smidge';
+                    qtyLabel = 'a smidge';
+                } else if (avgQty <= 1) {
+                    qtyLevel = 'little';
+                    qtyLabel = 'a little';
+                } else if (avgQty <= 2) {
+                    qtyLevel = 'medium';
+                    qtyLabel = 'medium';
+                } else {
+                    qtyLevel = 'lot';
+                    qtyLabel = 'a lot';
+                }
+                
+                giDiv.innerHTML = `
+                    <div class="gi-info">
+                        <div class="gi-name">${item.name}</div>
+                        <div class="gi-source">
+                            ${mealsHTML}
+                        </div>
+                    </div>
+                    <span class="qty qty-${qtyLevel}">${qtyLabel}</span>
+                `;
+                
+                giList.appendChild(giDiv);
+            });
+            
+            gcatBody.appendChild(giList);
+            gcat.appendChild(gcatHdr);
+            gcat.appendChild(gcatBody);
+            gcatsContainer.appendChild(gcat);
+        });
+        
+        // Update toolbar stats
+        document.getElementById('totalGroceries').textContent = totalCount;
+        document.getElementById('groceryCount').textContent = totalCount;
+        updateGroceryStats();
+    }
+
+    function renderDots(quantity) {
+        let count = Math.min(quantity, 3);
+        let html = '<span class="dots">';
+        for (let i = 1; i <= 3; i++) {
+            html += `<span class="dot${i > count ? ' empty' : ''}"></span>`;
+        }
+        html += '</span>';
+        return html;
+    }
+
+    function toggleGcat(hdr) {
+        hdr.closest('.gcat').classList.toggle('open');
+    }
+
+    function jumpToCategory(catName, btn) {
+        const catId = 'gcat-' + catName.toLowerCase().replace(/\s+/g, '-');
+        const element = document.getElementById(catId);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Update active jump pill
+            document.querySelectorAll('.jump-pill').forEach(pill => pill.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+        }
+    }
+
+    function updateGroceryStats() {
+        const totalItems = document.querySelectorAll('.gi').length;
+        
+        document.getElementById('totalGroceries').textContent = totalItems;
+        document.getElementById('groceryCount').textContent = totalItems;
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // MEAL FUNCTIONALITY (EXISTING)
+    // ════════════════════════════════════════════════════════════════
+
+    function getCooked() {
+        return document.querySelectorAll('.meal-row.cooked').length;
+    }
+
+    function updateProgress() {
+        const cooked = getCooked();
+        const pct = Math.round((cooked / totalMeals) * 100);
+        document.getElementById('progressFill').style.width = pct + '%';
+        document.getElementById('progressLabel').textContent = cooked === totalMeals
+            ? 'All done! 🎉'
+            : `${cooked} of ${totalMeals} cooked`;
+        document.getElementById('progressPct').textContent = pct + '%';
+
+        const hasCooked = cooked > 0;
+        const hasRemaining = cooked < totalMeals;
+        document.getElementById('cookedLabel').classList.toggle('hidden', !hasCooked);
+        document.getElementById('remainingLabel').classList.toggle('hidden', !hasRemaining);
+
+        repositionRows();
+    }
+
+    function repositionRows() {
+        const list = document.getElementById('mealsList');
+        const remainingLabel = document.getElementById('remainingLabel');
+        const cookedLabel = document.getElementById('cookedLabel');
+        const rows = [...list.querySelectorAll('.meal-row')];
+        const uncooked = rows.filter(r => !r.classList.contains('cooked'));
+        const cooked = rows.filter(r => r.classList.contains('cooked'));
+        if (uncooked.length) list.appendChild(remainingLabel);
+        uncooked.forEach(r => list.appendChild(r));
+        if (cooked.length) list.appendChild(cookedLabel);
+        cooked.forEach(r => list.appendChild(r));
+    }
+
+    function toggleCooked(e) {
+        e.stopPropagation();
+        const row = e.currentTarget.closest('.meal-row');
+        row.classList.toggle('cooked');
+        const check = row.querySelector('.meal-check');
+        check.style.animation = 'none';
+        check.offsetHeight;
+        if (row.classList.contains('cooked')) {
+            check.style.animation = 'checkPop 0.4s ease';
+        }
+        
+        // Update via API
+        const mealId = row.dataset.id;
+        const isCooked = row.classList.contains('cooked');
+        const mealPlanId = {{ meal_plan.meal_plan_id }};
+        
+        const url = `/meal_plan/${mealPlanId}/toggle_checked/${mealId}`;
+        fetch(url, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_checked: isCooked })
+        }).then(response => {
+            if (!response.ok) {
+                console.error('Failed to update meal checked state');
+                row.classList.toggle('cooked');
+            }
+        }).catch(error => {
+            console.error('Error:', error);
+            row.classList.toggle('cooked');
+        });
+        
+        updateProgress();
+    }
+
+    // ── DRAG AND DROP ──
+    function initDragDrop() {
+        const list = document.getElementById('mealsList');
+        const rows = list.querySelectorAll('[draggable="true"]');
+
+        rows.forEach(row => {
+            row.addEventListener('dragstart', e => {
+                dragSrc = row;
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', row.innerHTML);
+                row.classList.add('dragging');
+            });
+
+            row.addEventListener('dragend', e => {
+                rows.forEach(r => {
+                    r.classList.remove('drag-over');
+                    r.classList.remove('dragging');
+                });
+                dragSrc = null;
+            });
+        });
+
+        list.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const target = e.target.closest('[draggable="true"]');
+            if (target && target !== dragSrc) {
+                target.classList.add('drag-over');
+            }
+        });
+
+        list.addEventListener('dragleave', e => {
+            const target = e.target.closest('[draggable="true"]');
+            if (target && target !== dragSrc) {
+                target.classList.remove('drag-over');
+            }
+        });
+
+        list.addEventListener('drop', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            const target = e.target.closest('[draggable="true"]');
+            if (target && target !== dragSrc && dragSrc) {
+                target.parentNode.insertBefore(dragSrc, target);
+                
+                const orderedIds = Array.from(list.querySelectorAll('[draggable="true"]')).map(el => el.dataset.id);
+                fetch("{{ url_for('routes.reorder_meal_plan', meal_plan_id=meal_plan.meal_plan_id) }}", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ordered_ids: orderedIds })
+                }).catch(err => console.error("Fetch error:", err));
+            }
+        });
+    }
+
+    function toggleStar(e, mealId, currentlyFavorite) {
+        e.stopPropagation();
+        const row = e.currentTarget.closest('.meal-row');
+        const starEl = row.querySelector('.meal-fav');
+        const newFavoriteStatus = !JSON.parse(currentlyFavorite);
+
+        fetch(`/meals/${mealId}/favorite`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_favorite: newFavoriteStatus })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                starEl.innerHTML = newFavoriteStatus 
+                    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>'
+                    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>';
+                starEl.setAttribute('onclick', `toggleStar(event, ${mealId}, ${newFavoriteStatus})`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Error updating favorite!");
+        });
+    }
+
+    // Initialize
+    updateProgress();
+    initDragDrop();
+    initializeGroceryListButtonState();
+    initializeGroceryData();
+    groceryData.initialized = true;
+    initSuccessBanner();
+
+    // ════════════════════════════════════════════════════════════════
+    // SUCCESS BANNER
+    // ════════════════════════════════════════════════════════════════
+
+    function initSuccessBanner() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('new') === 'true') {
+            document.getElementById('successBanner').classList.add('visible');
+            // Clean the param from the URL so refreshing doesn't re-show it
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, '', cleanUrl);
+        }
+    }
+
+    function dismissSuccessBanner() {
+        const banner = document.getElementById('successBanner');
+        banner.style.transition = 'opacity 0.25s, transform 0.25s';
+        banner.style.opacity = '0';
+        banner.style.transform = 'translateY(-8px)';
+        setTimeout(() => banner.classList.remove('visible'), 250);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // DELETE MEAL PLAN
+    // ════════════════════════════════════════════════════════════════
+
+    function deletePlan() {
+        if (confirm('Delete this meal plan? This can\'t be undone.')) {
+            const mealPlanId = {{ meal_plan.meal_plan_id }};
+            
+            // Call Flask route to delete the meal plan
+            fetch(`/meal_plan/${mealPlanId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Redirect to meal plans list
+                    window.location.href = '{{ url_for("routes.meal_plans") }}';
+                } else {
+                    alert('Error deleting meal plan. Please try again.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting meal plan: ' + error.message);
+            });
+        }
+    }
+</script>
+    
+{% endblock %}
+

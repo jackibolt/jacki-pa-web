@@ -1,0 +1,178 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+
+<div class="meal-plans-wrapper meal-plans-page">
+  <div class="page-header-meal-plans">
+    <div class="page-header-left">
+      <div class="page-eyebrow">Meal planning</div>
+      <div class="page-title-meal-plans">Your Plans</div>
+    </div>
+    <div style="display: flex; gap: 12px;">
+      <a class="btn-create" href="{{ url_for('routes.grocery_list') }}" style="background: var(--green); color: var(--cream);">📋 Grocery List</a>
+      <a class="btn-create" href="{{ url_for('routes.new_meal_plan') }}">+ New Plan</a>
+    </div>
+  </div>
+
+  <div class="search-wrap-meal-plans">
+    <span class="search-icon">🔍</span>
+    <input class="search-input-meal-plans" type="text" id="mealPlanSearch" placeholder="Search your plans…">
+  </div>
+
+  <!-- Flash message -->
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div style="background: #e8f4ee; border: 1.5px solid rgba(61,122,87,0.2); border-radius: 16px; padding: 12px 16px; margin-bottom: 20px; text-align: center; font-size: 13px; color: var(--green-mid); animation: fadeDown 0.4s ease both;">
+        {{ messages[0] }}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!-- Combine action buttons -->
+  <div class="combine-action-buttons" style="display: none;">
+    <button class="btn-go" id="goBtn" data-url="{{ url_for('routes.grocery_list_view_combined') }}">Go</button>
+    <button class="btn-cancel" id="cancelBtn">Cancel</button>
+  </div>
+
+  <!-- Plans list -->
+  <div class="plans-list" id="plansList">
+    {% if meal_plans %}
+      {% for plan in meal_plans %}
+        <div class="plan-card" data-name="{{ plan.name | lower }}" data-id="{{ plan.id }}" style="animation-delay:{{ loop.index0 * 0.05 }}s; --progress: {{ plan.percentage }};">
+          <div class="plan-card-top" onclick="window.location='{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}'">
+            <div>
+              <div class="plan-card-name">
+                <a href="{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}">{{ plan.name }}</a>
+              </div>
+              <div class="plan-card-meta">
+                <span>{{ plan.meals_count }} meals · Created {{ plan.created_at }}</span>
+              </div>
+            </div>
+            <div class="plan-card-actions" onclick="event.stopPropagation()">
+              <a class="btn-plan-view" href="{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}">View</a>
+              <form action="{{ url_for('routes.delete_meal_plan', meal_plan_id=plan.id) }}" method="post" style="display: inline;">
+                <input type="hidden" name="_method" value="DELETE">
+                <button type="submit" class="btn-plan-delete" onclick="return confirm('Delete this plan?')">Delete</button>
+              </form>
+              <button class="add-to-combine-btn" style="display: none;">+</button>
+            </div>
+          </div>
+          <div class="plan-progress">
+            <div class="plan-progress-labels">
+              <span class="cooked-label">{% if plan.percentage == 100 %}All {{ plan.total_meals }} meals cooked 🎉{% else %}{{ plan.cooked_meals }} of {{ plan.total_meals }} cooked{% endif %}</span>
+              <span>{{ plan.percentage }}%</span>
+            </div>
+            <div class="plan-progress-track"><div class="plan-progress-fill{% if plan.percentage == 100 %} complete{% endif %}" style="width:{{ plan.percentage }}%"></div></div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">🍽️</div>
+        <div class="empty-title">No meal plans yet</div>
+        <div class="empty-sub">Create one to get started planning your meals</div>
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+
+
+
+<script>
+  let selectedMealPlans = [];
+
+  // Simple search filter
+  document.getElementById("mealPlanSearch").addEventListener("keyup", function () {
+    const searchTerm = this.value.toLowerCase();
+    const cards = document.querySelectorAll(".plan-card");
+
+    cards.forEach(card => {
+      const name = card.dataset.name;
+      card.style.display = name.includes(searchTerm) ? "" : "none";
+    });
+  });
+
+  // Handle "Go" button click to redirect with selected meal plans
+  document.getElementById("goBtn").addEventListener("click", function () {
+    if (selectedMealPlans.length === 0) {
+      alert("Please select at least one meal plan.");
+      return;
+    }
+
+    const url = new URL(this.getAttribute("data-url"), window.location.origin);
+    selectedMealPlans.forEach(id => url.searchParams.append('meal_plan_id', id));
+    window.location.href = url.toString();
+  });
+
+  // Toggle + / x on each add-to-combine button
+  document.querySelectorAll(".add-to-combine-btn").forEach(button => {
+    button.addEventListener("click", function (e) {
+      e.stopPropagation();
+      const mealPlanId = this.closest(".plan-card").dataset.id;
+
+      if (selectedMealPlans.includes(mealPlanId)) {
+        selectedMealPlans = selectedMealPlans.filter(id => id !== mealPlanId);
+        this.classList.remove("btn-success");
+        this.textContent = "+";
+      } else {
+        selectedMealPlans.push(mealPlanId);
+        this.classList.add("btn-success");
+        this.textContent = "✓";
+      }
+    });
+  });
+
+  // Handle "Cancel" button to reset the view
+  document.getElementById("cancelBtn").addEventListener("click", function () {
+    selectedMealPlans = [];
+
+    // Hide + buttons and reset their appearance
+    document.querySelectorAll(".add-to-combine-btn").forEach(button => {
+      button.style.display = "none";
+      button.classList.remove("btn-success");
+      button.textContent = "+";
+    });
+
+    // Show view/delete buttons again
+    document.querySelectorAll(".btn-plan-view, .btn-plan-delete").forEach(button => {
+      button.style.display = "inline-block";
+    });
+
+    // Hide Go and Cancel buttons
+    document.querySelector(".combine-action-buttons").style.display = "none";
+  });
+
+  // Set stripe color based on progress
+  function setStripeColors() {
+    const cream = '#f5f0e8';
+    const green = '#1a3a2a';
+    const rose = '#c8455a';
+    
+    document.querySelectorAll(".plan-card").forEach((card, idx) => {
+      const progressStr = card.style.getPropertyValue('--progress');
+      const progress = parseInt(progressStr) || 0;
+      
+      let color;
+      if (progress === 0) {
+        color = cream;
+      } else if (progress === 100) {
+        color = rose;
+      } else {
+        color = green;
+      }
+      
+      card.style.setProperty('--stripe-color', color);
+    });
+  }
+
+  // Run on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setStripeColors);
+  } else {
+    setStripeColors();
+  }
+</script>
+
+{% endblock %}
