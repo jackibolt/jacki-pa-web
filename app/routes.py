@@ -78,53 +78,6 @@ def clear_and_flash(msg, category='message'):
 def index():
     return redirect(url_for('routes.login'))
 
-## ROUTE FOR NEW USER PAGE ✅
-@routes.route('/new-user', methods=['GET', 'POST'])
-def new_user():
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        name = request.form['name']
-        response = requests.post(f'{API_BASE_URL}/user', json={
-            'email': email,
-            'password': password,
-            'name': name
-        })
-        if response.status_code == 201:
-            print(response.json())
-            # Automatically log in the user
-            login_response = requests.post(f'{API_BASE_URL}/auth/login', json={
-                'email': email,
-                'password': password,
-                'remember_me': False
-            })
-            
-            if login_response.status_code == 200:
-                login_data = login_response.json()
-                # Store tokens in response cookies with secure settings
-                resp = make_response(redirect(url_for('routes.select_meals')))
-                is_production = os.getenv('FLASK_ENV') == 'production'
-                
-                resp.set_cookie('access_token', login_data.get('access_token'),
-                               httponly=True, samesite='Lax', 
-                               secure=is_production, max_age=60*60)
-                resp.set_cookie('refresh_token', login_data.get('refresh_token'),
-                               httponly=True, samesite='Lax', 
-                               secure=is_production, max_age=31536000)
-                return resp
-            else:
-                clear_and_flash("Account created but login failed. Please log in manually.")
-                return redirect(url_for('routes.login'))
-        else:
-            print(response.json())
-            if response.status_code == 400:
-                print(f"⚠️ User already exists.")
-                clear_and_flash(f"⚠️ User already exists.")
-            else:
-                print("⛔ User creation failed.")
-    return render_template('new_user.html', random_subhead=random_subheader())
-
-
 ## ROUTE FOR SELECT MEALS PAGE (ONBOARDING) ✅
 @routes.route('/select-meals', methods=['GET', 'POST'])
 @login_required
