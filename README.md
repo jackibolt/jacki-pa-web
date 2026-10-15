@@ -14,7 +14,6 @@ Server-rendered Flask web application for [Dinnr](https://www.dinnr.dev), a meal
 - [Authentication Flow](#authentication-flow)
 - [Backend API Integration](#backend-api-integration)
 - [Frontend Assets](#frontend-assets)
-- [Subscription Tiers](#subscription-tiers)
 - [Deployment](#deployment)
 
 ---
@@ -27,7 +26,6 @@ Server-rendered Flask web application for [Dinnr](https://www.dinnr.dev), a meal
 | Templating | Jinja2 |
 | Auth | Flask-Login, Flask-JWT-Extended, PyJWT |
 | HTTP client | requests |
-| Payments | Stripe |
 | Server | Gunicorn |
 | CSS | Custom (CSS variables, Flexbox/Grid) |
 | JS | Vanilla JavaScript, jQuery |
@@ -100,7 +98,7 @@ click.cook.eat_flask/
  - `meal_plan_result.html` → `MealPlanEditorView` (draggable reorder, add/remove meals)
  - `meal_plan.html` & `meal_plans.html` → `MealPlanDetailView` + `MealPlansListView`
  - `grocery_list.html` → `GroceryListView` (aggregated groceries for plan or multiple plans)
- - `profile.html` → `ProfileView` (preferences, subscription status, Stripe actions)
+ - `profile.html` → `ProfileView` (preferences, password change)
  - `contact.html` → `ContactView` (contact form)
  - `_ingredient_modal.html` → `IngredientPicker` (modal / sheet component)
  - `_onboarding_modal.html` → `OnboardingFlow` (multi-step modal shown on first login)
@@ -163,8 +161,6 @@ click.cook.eat_flask/
  - GET `/meal_plans/grocery_list` — combined grocery
  - GET/POST `/scratch-list`
 
- Subscriptions
- - POST `/create-checkout-session` — returns checkout URL; on mobile use Stripe SDK or open in SFSafariViewController
 
  ---
 
@@ -226,14 +222,6 @@ click.cook.eat_flask/
  - primaryBlack: `#131313`
 
  Typography and spacing can be derived from templates (class names and container sizes). Use `profile.html` and `contact.html` as the canonical layout references.
-
- ---
-
- ## Stripe & subscription flows on mobile
-
- - Option A (recommended): Use Stripe Mobile SDK for in-app purchases and customer portal flows.
- - Option B: Use server-driven checkout URL returned from `POST /create-checkout-session` and open it in `SFSafariViewController`.
- - Make sure your backend has webhook handling (`/stripe/webhook`) to update subscription records.
 
  ---
 

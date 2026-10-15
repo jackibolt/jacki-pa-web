@@ -243,7 +243,7 @@
                     <label class="field-label" for="tags">Tags</label>
                     <div class="tags-wrap" id="tag-container">
                         <input type="text" id="tag-input" class="tags-input"
-                            {% if subscription_type == 'FREE' %}placeholder="Upgrade to PREMIUM" disabled {% else %}placeholder="Press Enter to add"{% endif %} />
+                            placeholder="Press Enter to add" />
                     </div>
                     <input type="hidden" name="tags" id="tags" value="{{ ', '.join(meal.tags) if meal and meal.tags else '' }}">
                     <script>
@@ -266,12 +266,11 @@
                     <div class="toggle-row" style="border: none; padding: 0; margin-top: 0;">
                         <div class="toggle-info">
                             <div class="toggle-label">Side dish</div>
-                            <div class="toggle-sub">{% if subscription_type == 'FREE' %}Upgrade to PREMIUM{% else %}Mark this as a side rather than a main{% endif %}</div>
+                            <div class="toggle-sub">Mark this as a side rather than a main</div>
                         </div>
                         <label class="toggle">
                             <input type="checkbox" name="is_side_dish" id="is_side_dish"
-                                {% if meal and meal.get('is_side_dish') %}checked{% endif %}
-                                {% if subscription_type == 'FREE' %}disabled{% endif %}>
+                                {% if meal and meal.get('is_side_dish') %}checked{% endif %}>
                             <span class="toggle-track"></span>
                         </label>
                     </div>

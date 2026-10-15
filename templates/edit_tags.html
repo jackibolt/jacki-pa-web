@@ -14,7 +14,6 @@
     </div>
 
     <!-- Info Text -->
-    {% if subscription_type == 'PREMIUM' %}
         <div class="page-info">
             <p class="info-primary">Create and manage custom meal tags</p>
             <p class="info-secondary">Add new tags directly inside the <a href="{{ url_for('routes.meals') }}">meal form</a>.</p>
@@ -49,23 +48,6 @@
                 {% endfor %}
             </div>
         </div>
-    {% else %}
-        <div class="page-info">
-            <p class="info-primary">Premium Feature</p>
-            <p class="info-secondary">Custom tags are only available to premium users.</p>
-        </div>
-
-        <div class="form-card">
-            <div class="upgrade-prompt">
-                <div class="upgrade-icon">🔒</div>
-                <div class="upgrade-text">
-                    <p class="upgrade-title">Unlock Custom Tags</p>
-                    <p class="upgrade-description">Manage custom meal tags to organize your recipes better.</p>
-                </div>
-                <a href="{{ url_for('routes.profile') }}" class="btn btn-primary">Upgrade to Premium</a>
-            </div>
-        </div>
-    {% endif %}
 
 </div>
 {% endblock %}

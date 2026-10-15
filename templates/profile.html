@@ -173,24 +173,6 @@
         <input class="field-input" type="email" name="email" value="{{ user.email }}" required>
       </div>
       
-      <div class="field">
-        <label class="field-label">Subscription</label>
-        <div class="sub-row">
-          <span class="sub-badge{% if user.subscription.type == 'FREE' %} free{% endif %}">{{ user.subscription.type }}</span>
-          {% if user.subscription.type == 'PREMIUM' and user.subscription.end_date_clean %}
-            <span class="sub-renews">
-              {% if canceled %}<span style="color: var(--rose);">Canceled</span> — {% endif %}
-              {% if canceled %}Expires{% else %}Renews{% endif %} on {{ user.subscription.end_date_clean }}
-            </span>
-          {% endif %}
-        </div>
-        {% if user.subscription.type == 'FREE' %}
-          <div style="margin-top: 12px; display: flex; gap: 8px;">
-            <a href="{{ url_for('routes.start_subscription') }}" class="btn-premium">GET PREMIUM</a>
-            <button type="button" class="btn-secondary" id="freeTrial-trigger" style="cursor: pointer;">Get Free Trial</button>
-          </div>
-        {% endif %}
-      </div>
     </div>
 
     <!-- PREFERENCES -->
@@ -258,36 +240,12 @@
       <button type="button" class="btn-secondary" id="changePasswordTrigger">Change Password</button>
     </div>
 
-    <!-- DANGER ZONE -->
-    <div class="danger-zone">
-      <div>
-        <div class="danger-zone-label">Cancel Subscription</div>
-        <div class="danger-zone-desc">You'll lose access to Premium features at the end of your billing period.</div>
-      </div>
-      <button type="button" class="btn-danger" id="cancel-subscription-btn" style="{% if user.subscription.type == 'FREE' %}display:none;{% endif %}">Cancel Subscription</button>
-    </div>
-
     <!-- SAVE -->
     <div class="save-row">
       <button type="button" class="btn-secondary" onclick="location.reload()">Discard changes</button>
       <button type="submit" class="btn-primary" id="saveBtn">Save Changes</button>
     </div>
   </form>
-
-  <!-- FREE TRIAL MODAL -->
-  {% if user.subscription.type == 'FREE' %}
-  <div class="free-trial-modal" id="freeTrialModal">
-    <div class="free-trial-modal-content">
-      <h2>Enter Free Trial Code</h2>
-      <input type="text" id="freeTrialCodeInput" placeholder="Enter code here" />
-      <div>
-        <button type="button" class="btn-primary" id="submitFreeTrialBtn" style="margin-top: 12px;">Submit</button>
-        <button type="button" class="btn-secondary" id="closeFreeTrialModalBtn" style="margin-top: 12px; margin-left: 8px;">Close</button>
-      </div>
-      <p id="freeTrialMessage"></p>
-    </div>
-  </div>
-  {% endif %}
 
   <!-- CHANGE PASSWORD MODAL -->
   <div class="free-trial-modal" id="changePasswordModal">

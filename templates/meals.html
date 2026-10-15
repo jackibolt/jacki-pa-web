@@ -10,11 +10,7 @@
     </div>
     <div class="header-actions" id="mealsHeaderActions">
       <a href="{{ url_for('routes.bulk_add_meals') }}" class="btn btn-secondary">⚡ Bulk Add</a>
-      {% if subscription_type == 'PREMIUM' %}
-        <a href="{{ url_for('routes.edit_tags') }}" class="btn btn-secondary">🏷️ Edit Tags</a>
-      {% else %}
-        <a href="#" class="btn btn-secondary" style="opacity: 0.6; cursor: not-allowed;">🔒 Edit Tags</a>
-      {% endif %}
+      <a href="{{ url_for('routes.edit_tags') }}" class="btn btn-secondary">🏷️ Edit Tags</a>
       <a href="{{ url_for('routes.new_meal') }}" class="btn btn-primary">+ Add Meal</a>
     </div>
     <div class="header-actions" id="ingredientsHeaderActions" style="display: none;">
@@ -78,10 +74,8 @@
     {% for meal in meals %}
       {% for tag in meal.tags %}
         {% if tag not in tag_set_pills %}
-          {% if subscription_type == 'PREMIUM' %}
-            <div class="filter-pill" data-tag="{{ tag }}">{{ tag }}</div>
+                      <div class="filter-pill" data-tag="{{ tag }}">{{ tag }}</div>
             {% do tag_set_pills.append(tag) %}
-          {% endif %}
         {% endif %}
       {% endfor %}
     {% endfor %}
