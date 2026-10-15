@@ -473,11 +473,7 @@ def meals():
     user_prefs = requests.get(f"{API_BASE_URL}/user/profile" , headers=user_headers)
     if user_prefs.status_code == 200:
         user_profile = user_prefs.json()
-        subscription_type = user_profile.get('subscription', {}).get('type', 'FREE')
-    else:
-        subscription_type = 'FREE'
 
-    print(subscription_type)
 
     # Fetch meals
     meals_list = []
@@ -517,8 +513,7 @@ def meals():
 
     return render_template(
         'meals.html',
-        meals=meals_list, 
-        subscription_type=subscription_type,
+        meals=meals_list,
         ingredients=ingredients,
         ingredient_categories=ingredient_categories,
         random_subhead=random_subheader(),
@@ -563,9 +558,6 @@ def meal_detail(meal_id):
     user_prefs = requests.get(f"{API_BASE_URL}/user/profile" , headers=user_headers)
     if user_prefs.status_code == 200:
         user_profile = user_prefs.json()
-        subscription_type = user_profile.get('subscription', {}).get('type', 'FREE')
-    else:
-        subscription_type = 'FREE'
 
     # Fetch meal details
     response = requests.get(f'{API_BASE_URL}/meals/{meal_id}', headers=headers)
@@ -591,7 +583,7 @@ def meal_detail(meal_id):
                                 categories=results['categories']['data'] if results['categories']['status_code'] == 200 else [],
                                 tags=results['tags']['data'] if results['tags']['status_code'] == 200 else [],
                                 ingredient_categories=results['ingredient_categories']['data'] if results['ingredient_categories']['status_code'] == 200 else [],
-                                access_token=g.access_token, back_href=url_for('routes.meals'), subscription_type=subscription_type)
+                                access_token=g.access_token, back_href=url_for('routes.meals'))
     
     print("⚠️ Failed to fetch meal details.")
     return redirect(url_for('routes.meals'))
@@ -607,9 +599,6 @@ def update_meal(meal_id):
     user_prefs = requests.get(f"{API_BASE_URL}/user/profile" , headers=user_headers)
     if user_prefs.status_code == 200:
         user_profile = user_prefs.json()
-        subscription_type = user_profile.get('subscription', {}).get('type', 'FREE')
-    else:
-        subscription_type = 'FREE'
 
 
     headers = {
@@ -655,8 +644,7 @@ def update_meal(meal_id):
         'is_default': is_default
     }
 
-    if subscription_type == 'PREMIUM':
-        updated_data['tags'] = tags
+    updated_data['tags'] = tags
 
     # Optional: Ingredients if passed from a hidden input
     ingredients_json = request.form.get('ingredients')
@@ -693,10 +681,6 @@ def new_meal():
     user_prefs = requests.get(f"{API_BASE_URL}/user/profile" , headers=user_headers)
     if user_prefs.status_code == 200:
         user_profile = user_prefs.json()
-        subscription_type = user_profile.get('subscription', {}).get('type', 'FREE')
-    else:
-        subscription_type = 'FREE'
-    print(subscription_type)
 
     headers = {'Authorization': f"Bearer {g.access_token}"}
 
@@ -714,7 +698,7 @@ def new_meal():
         cuisines=results['cuisines']['data'] if results['cuisines']['status_code'] == 200 else [],
         categories=results['categories']['data'] if results['categories']['status_code'] == 200 else [],
         mode='new', tags=results['tags']['data'] if results['tags']['status_code'] == 200 else [],
-        random_subhead=random_subheader(), back_href=url_for('routes.meals'), subscription_type=subscription_type)
+        random_subhead=random_subheader(), back_href=url_for('routes.meals'))
 
 
 ## ROUTE TO CREATE A MEAL (API CALL) ✅
@@ -866,9 +850,6 @@ def edit_tags():
     user_prefs = requests.get(f"{API_BASE_URL}/user/profile" , headers=user_headers)
     if user_prefs.status_code == 200:
         user_profile = user_prefs.json()
-        subscription_type = user_profile.get('subscription', {}).get('type', 'FREE')
-    else:
-        subscription_type = 'FREE'
 
 
     if response.status_code == 200:
@@ -877,7 +858,7 @@ def edit_tags():
         tags = []
 
     return render_template('edit_tags.html', random_subheader=random_subheader(),
-                           back_href=url_for('routes.meals'), tags=tags, subscription_type=subscription_type,
+                           back_href=url_for('routes.meals'), tags=tags,
                            access_token=g.access_token, api_base_url=API_BASE_URL)
 
 
@@ -1196,14 +1177,11 @@ def new_meal_plan():
 
     print(tags)
 
-    # Determine max_meals based on subscription type
-    subscription_type = user_profile.get('subscription', {}).get('type', 'FREE')
-    max_meals = 14 if subscription_type == 'PREMIUM' else 7
+    max_meals = 14
 
     if user_profile:
         return render_template('new_meal_plan.html', meals=meals, categories=categories, mode='new', max_meals=max_meals,
-                                tags=tags, back_href=url_for('routes.meal_plans'), random_subhead=random_subheader(),
-                                subscription_type=subscription_type)    
+                                tags=tags, back_href=url_for('routes.meal_plans'), random_subhead=random_subheader())    
 
     print("⚠️ Failed to fetch meals or categories.")
     return redirect(url_for('routes.home'))
@@ -1396,9 +1374,6 @@ def add_side_dishes_page(meal_plan_id):
     user_prefs = requests.get(f"{API_BASE_URL}/user/profile" , headers=user_headers)
     if user_prefs.status_code == 200:
         user_profile = user_prefs.json()
-        subscription_type = user_profile.get('subscription', {}).get('type', 'FREE')
-    else:
-        subscription_type = 'FREE'
 
     headers = {'Authorization': f"Bearer {g.access_token}"}
     # Get the specific meal plan
@@ -1443,7 +1418,7 @@ def add_side_dishes_page(meal_plan_id):
         'add_side_dishes.html',
         meal_plan=meal_plan, back_href=url_for('routes.meal_plan_result', meal_plan_id=meal_plan_id),
         available_side_dishes=available_side_dishes, meal_plan_id=meal_plan_id,
-        random_subhead=random_subheader(), access_token=g.access_token, subscription_type=subscription_type)
+        random_subhead=random_subheader(), access_token=g.access_token)
 
 
 ## ROUTE TO ASSIGN SIDE DISHES AND FINALIZE MEAL PLAN (API CALL) ✅
@@ -2231,16 +2206,6 @@ def clear_scratch_items():
 # ----------------- #
 ## SETTINGS ROUTES ##
 
-def format_subscription_date(date_str):
-    try:
-        # Parse the string using the known format
-        dt = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %Z")
-        # Format it into the desired format
-        return dt.strftime("%b. %d, %Y")
-    except Exception:
-        return None
-
-
 ## ROUTE FOR USER PROFILE PAGE, AND API CALL ✅
 @routes.route('/profile', methods=['GET', 'POST'])
 @login_required
@@ -2250,16 +2215,6 @@ def profile():
     api_url = f"{API_BASE_URL}/user/profile" 
 
     if request.method == 'POST':
-
-        # 👇 Check if the user clicked "Cancel Subscription"
-        if 'cancel_subscription' in request.form:
-            cancel_url = f"{API_BASE_URL}/subscription/cancel"
-            cancel_response = requests.post(cancel_url, headers=headers)
-            if cancel_response.status_code == 200:
-                clear_and_flash("Subscription canceled successfully.", "success")
-            else:
-                clear_and_flash("Failed to cancel subscription.", "danger")
-            return redirect(url_for("routes.profile"))
 
         payload = {
             "name": request.form.get("name"),
@@ -2290,103 +2245,15 @@ def profile():
     if profile_response.status_code == 200:
         user_data = profile_response.json()
         # tags = tags_response.json()
-        formatted_end_date = format_subscription_date(user_data['subscription']['end_date']) if user_data and user_data['subscription']['end_date'] else None
-        user_data['subscription']['end_date_clean'] = formatted_end_date
-
-        status = user_data['subscription']['status']
-        canceled_at = user_data['subscription']['canceled_at']
-
-        canceled = True if status == 'active' and canceled_at != None else False
-        trial = True if user_data['subscription']['billing_interval'] == 'trial' else False
-        print(f"TRIAL: {trial}")
 
     else:
         user_data = {}
         clear_and_flash("Failed to load user data.", "danger")
 
     return render_template("profile.html", user=user_data, random_subhead=random_subheader(), access_token=g.access_token,
-                            api_base_url=API_BASE_URL, canceled=canceled, trial=trial)
+                            api_base_url=API_BASE_URL)
 
 
-
-
-## ROUTE FOR STARTING SUBSCRIPTION @ STRIPE (API CALL)
-@routes.route('/start_subscription', methods=['GET', 'POST'])
-@login_required
-def start_subscription():
-    api_url = f"{API_BASE_URL.rstrip('/')}/create-checkout-session"
-    print(f"Calling create-checkout-session at: {api_url}")
-    headers = {'Authorization': f'Bearer {g.access_token}'}
-
-    try:
-        response = requests.post(api_url, headers=headers, timeout=10)
-    except Exception as e:
-        print(f"Error calling create-checkout-session: {e}")
-        clear_and_flash(f"Failed to start subscription: {e}", "error")
-        return redirect(url_for('routes.profile'))
-
-    print(f"create-checkout-session response: {response.status_code} - {response.text}")
-
-    if response.status_code == 200:
-        checkout_url = response.json().get('checkout_url')
-        if checkout_url:
-            return redirect(checkout_url)
-        else:
-            clear_and_flash('Failed to start subscription: no checkout URL returned', 'error')
-            return redirect(url_for('routes.profile'))
-    else:
-        # Try to include API error message in flash for easier debugging
-        try:
-            err = response.json().get('error') if response.headers.get('Content-Type','').startswith('application/json') else response.text
-        except Exception:
-            err = response.text
-        clear_and_flash(f"Failed to start subscription: {err}", "error")
-        return redirect(url_for('routes.profile'))
-
-
-## ROUTE FOR SUBSCRIPTION SUCCESS (REDIRECT)
-@routes.route('/success')
-def subscription_success():
-    session_id = request.args.get('session_id')
-
-    try:
-        verify_jwt_in_request()
-        user_id = get_jwt_identity()
-    except NoAuthorizationError:
-        user_id = None
-
-    if not session_id:
-        clear_and_flash('Missing session ID after checkout.', 'error')
-        return redirect(url_for('routes.home'))
-
-    if user_id:
-        clear_and_flash('Subscription successful! Welcome to Premium 🎉', 'success')
-        return redirect(url_for('routes.profile'))
-    else:
-        return render_template('subscription_success.html')
-
-
-## ROUTE FOR CANCEL PAYMENT (REDIRECT)
-@routes.route('/cancel')
-def subscription_cancel():
-
-    session_id = request.args.get('session_id')
-
-    try:
-        verify_jwt_in_request()
-        user_id = get_jwt_identity()
-    except NoAuthorizationError:
-        user_id = None
-
-    if not session_id:
-        clear_and_flash('Missing session ID after checkout.', 'error')
-        return redirect(url_for('routes.home'))
-
-    if user_id:
-        clear_and_flash('Subscription canceled or incomplete.', 'warning')
-        return redirect(url_for('routes.profile'))
-    else:
-        return render_template('subscription_canceled.html')
 
 
 # Email validation regex pattern

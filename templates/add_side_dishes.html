@@ -29,9 +29,9 @@
         <!-- Page Header -->
         <div class="page-header">
             <div>
-                <div class="page-eyebrow {% if subscription_type == 'FREE' %}premium{% endif %}">{% if subscription_type == 'FREE' %}Premium feature{% else %}Step 3 of 4{% endif %}</div>
+                <div class="page-eyebrow">Step 3 of 4</div>
                 <h1 class="page-title">Add Side Dishes</h1>
-                <div class="page-sub">Pair any meal with a side and its ingredients get added to your grocery list automatically.{% if subscription_type == 'FREE' %} Available on <a href="{{ url_for('routes.profile') }}">Dinnr Premium</a>.{% endif %}</div>
+                <div class="page-sub">Pair any meal with a side and its ingredients get added to your grocery list automatically.</div>
             </div>
         </div>
 
@@ -80,21 +80,6 @@
                                 <button type="button" class="side-panel-cancel" onclick="closePanel(this)">Cancel</button>
                             </div>
 
-                            <!-- Upsell Panel (Free Users) -->
-                            {% if subscription_type == 'FREE' %}
-                            <div class="upsell-panel">
-                                <div class="upsell-inner">
-                                    <div class="upsell-icon">✦</div>
-                                    <div class="upsell-text">
-                                        <div class="upsell-title">Premium feature</div>
-                                        <div class="upsell-sub">Pair any meal with a side dish — ingredients are added to your grocery list automatically.</div>
-                                    </div>
-                                    <button type="button" class="btn-upsell" onclick="openPremiumModal()">Upgrade</button>
-                                </div>
-                                <button type="button" class="upsell-dismiss" onclick="closeRowPanel(this.closest('.meal-row'))">No thanks, skip sides</button>
-                            </div>
-                            {% endif %}
-
                             <!-- Hidden input for form submission -->
                             <input type="hidden" name="side_dish_{{ meal.id }}" class="side-dish-input" value="{% if meal.side_dish_id %}{{ meal.side_dish_id }}{% endif %}">
                         </div>
@@ -118,8 +103,6 @@
 </div>
 
 <script>
-    const isFreeUser = {{ 'true' if subscription_type == 'FREE' else 'false' }};
-
     const sideDishes = [
         {% for side in available_side_dishes %}
             { id: {{ side.id }}, name: "{{ side.name }}", cuisine: "{{ side.cuisine or 'Other' }}" }{% if not loop.last %},{% endif %}
@@ -134,12 +117,8 @@
             if (r !== row) closeRowPanel(r);
         });
 
-        if (isFreeUser) {
-            row.classList.add('open-upsell');
-        } else {
-            row.classList.add('open');
-            setTimeout(() => row.querySelector('.side-search-input').focus(), 300);
-        }
+                row.classList.add('open');
+        setTimeout(() => row.querySelector('.side-search-input').focus(), 300);
     }
 
     function closePanel(btn) {
@@ -236,66 +215,4 @@
     });
 </script>
 
-<!-- PREMIUM UPGRADE MODAL -->
-<div class="modal-overlay" id="premiumModal">
-  <div class="modal">
-    <div class="modal-header">
-      <button class="modal-close" onclick="closePremiumModal()">✕</button>
-      <span class="modal-header-icon">✦</span>
-      <div class="modal-header-eyebrow">Dinnr Premium</div>
-      <div class="modal-header-title">Plan smarter.<br>Shop easier.</div>
-      <div class="modal-header-sub">Everything in free, plus:</div>
-    </div>
-    <div class="modal-body">
-      <div class="modal-price">
-        <div class="modal-price-amount">$4.99</div>
-        <div class="modal-price-period">per month · cancel anytime</div>
-      </div>
-      <div class="modal-features">
-        <div class="modal-feature">
-          <div class="modal-feature-icon">🎲</div>
-          <div>
-            <div class="modal-feature-title">Up to 14 meals per plan</div>
-            <div class="modal-feature-desc">Free plan is limited to 7 meals per plan.</div>
-          </div>
-        </div>
-        <div class="modal-feature">
-          <div class="modal-feature-icon">📋</div>
-          <div>
-            <div class="modal-feature-title">Up to 10 active meal plans</div>
-            <div class="modal-feature-desc">Keep multiple weeks of plans active at once.</div>
-          </div>
-        </div>
-        <div class="modal-feature">
-          <div class="modal-feature-icon">🥗</div>
-          <div>
-            <div class="modal-feature-title">Side dishes</div>
-            <div class="modal-feature-desc">Pair any meal with a side — ingredients are added to your grocery list automatically.</div>
-          </div>
-        </div>
-        <div class="modal-feature">
-          <div class="modal-feature-icon">🏷️</div>
-          <div>
-            <div class="modal-feature-title">Tag filters</div>
-            <div class="modal-feature-desc">Filter meals by your own tags when generating plans.</div>
-          </div>
-        </div>
-      </div>
-      <button class="btn-upgrade-modal" onclick="window.location.href='{{ url_for('routes.profile') }}'">✦ Upgrade to Premium — $4.99/mo</button>
-      <div class="modal-note">Billed monthly. Cancel any time from your profile.</div>
-    </div>
-  </div>
-</div>
-
-<script>
-  function openPremiumModal() {
-    document.getElementById('premiumModal').classList.add('open');
-  }
-  function closePremiumModal() {
-    document.getElementById('premiumModal').classList.remove('open');
-  }
-  document.getElementById('premiumModal').addEventListener('click', function(e) {
-    if (e.target === this) closePremiumModal();
-  });
-</script>
 {% endblock %}
