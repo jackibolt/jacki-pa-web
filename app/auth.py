@@ -6,7 +6,9 @@ from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 
 API_BASE_URL = os.getenv("API_BASE_URL")
-SECRET_KEY = 'your-jwt-secret-key'
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")  # must match the API's JWT_SECRET_KEY
+if not SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY must be set as an environment variable.")
 
 
 from flask import g, request, redirect, url_for, flash, make_response
