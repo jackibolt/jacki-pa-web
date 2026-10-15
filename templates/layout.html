@@ -114,9 +114,6 @@
                     font-size: 15px;
                 }
             </style>
-            {% if env == 'production' %}
-                <!-- <script async defer src="https://tools.luckyorange.com/core/lo.js?site-id=f6a68191"></script> -->
-            {% endif %}
         </head>
         <body>
             <!-- NAV -->
@@ -138,10 +135,6 @@
                     <div class="nav-dropdown" id="navDropdown">
                         <a href="{{ url_for('routes.profile') }}" class="nav-dropdown-item">
                             <span class="nav-dropdown-icon">⚙️</span> Profile &amp; Settings
-                        </a>
-                        <div class="nav-dropdown-divider"></div>
-                        <a href="{{ url_for('routes.contact') }}" class="nav-dropdown-item">
-                            <span class="nav-dropdown-icon">📬</span> Contact
                         </a>
                         <div class="nav-dropdown-divider"></div>
                         <button class="nav-dropdown-item danger" onclick="logout()">

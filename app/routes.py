@@ -13,7 +13,6 @@ from functools import wraps
 from markupsafe import Markup
 from flask_login import login_user, UserMixin
 
-from app.send_email import send_message
 from app import User
 
 from app.auth import login_required
@@ -77,112 +76,6 @@ def clear_and_flash(msg, category='message'):
 @routes.route('/')
 def index():
     return redirect(url_for('routes.login'))
-
-## ROUTE FOR SELECT MEALS PAGE (ONBOARDING) ✅
-@routes.route('/select-meals', methods=['GET', 'POST'])
-@login_required
-def select_meals():
-    """
-    Onboarding page where new users select which meals they want in their account.
-    """
-    if request.method == 'POST':
-        try:
-            # Get the selected meal names from the form
-            selected_meals = request.form.getlist('selected_meals')
-            
-            if not selected_meals:
-                clear_and_flash("Please select at least one meal to continue.")
-                return redirect(url_for('routes.select_meals'))
-            
-            # Send selected meals to the backend API
-            headers = {'Authorization': f'Bearer {g.access_token}'}
-            response = requests.post(
-                f'{API_BASE_URL}/user/select-meals',
-                json={'meal_names': selected_meals},
-                headers=headers
-            )
-            
-            if response.status_code == 201:
-                # Store the meal count in session for the ready-to-plan page
-                session['onboarding_meal_count'] = len(selected_meals)
-                return redirect(url_for('routes.ready_to_plan'))
-            else:
-                print(f"Error from API: {response.json()}")
-                clear_and_flash("Failed to save your meal selections. Please try again.")
-                return redirect(url_for('routes.select_meals'))
-        
-        except Exception as e:
-            print(f"Exception in select_meals POST: {str(e)}")
-            clear_and_flash(f"An error occurred: {str(e)}")
-            return redirect(url_for('routes.select_meals'))
-    
-    # GET request - show the meal selection page
-    try:
-        headers = {'Authorization': f'Bearer {g.access_token}'}
-        
-        # Fetch available seed meals from the API
-        meals_response = requests.get(
-            f'{API_BASE_URL}/meals/seed-options',
-            headers=headers
-        )
-        
-        if meals_response.status_code != 200:
-            clear_and_flash("Failed to load available meals.")
-            return redirect(url_for('routes.home'))
-        
-        meals_data = meals_response.json().get('meals', [])
-        
-        # Group meals by cuisine for easier rendering
-        meals_by_cuisine = {}
-        cuisines = set()
-        
-        for meal in meals_data:
-            cuisine = meal.get('cuisine', 'Other')
-            cuisines.add(cuisine)
-            
-            if cuisine not in meals_by_cuisine:
-                meals_by_cuisine[cuisine] = []
-            
-            meals_by_cuisine[cuisine].append(meal)
-        
-        # Sort cuisines alphabetically
-        sorted_cuisines = sorted(list(cuisines))
-        
-        return render_template(
-            'select_meals.html',
-            meals=meals_data,
-            meals_by_cuisine=meals_by_cuisine,
-            cuisines=sorted_cuisines,
-            random_subhead=random_subheader()
-        )
-    
-    except Exception as e:
-        print(f"Exception in select_meals GET: {str(e)}")
-        clear_and_flash("An error occurred while loading meals.")
-        return redirect(url_for('routes.home'))
-
-
-## ROUTE FOR READY TO PLAN PAGE (ONBOARDING STEP 3) ✅
-@routes.route('/ready-to-plan', methods=['GET'])
-@login_required
-def ready_to_plan():
-    """
-    Final onboarding step - shows user they're ready to generate their first meal plan.
-    Displays the count of meals they selected and offers quick actions.
-    """
-    # Get the meal count from session
-    meal_count = session.pop('onboarding_meal_count', 0)
-    
-    if meal_count == 0:
-        # If no meal count in session, redirect to home
-        return redirect(url_for('routes.home'))
-    
-    return render_template(
-        'ready_to_plan.html',
-        meal_count=meal_count,
-        random_subhead=random_subheader()
-    )
-
 
 ## ROUTE FOR LOGIN PAGE ✅ 
 @routes.route('/login', methods=['GET', 'POST'])
@@ -416,8 +309,6 @@ def home():
                     print(f"❌ Exception while deleting meal plan ID {plan_id}: {e}")
 
     show_home_modal = session.pop('show_home_modal', False)
-    show_onboarding = user_profile.get('show_onboarding')
-    print(show_onboarding)
 
     # Build user object for template with name from profile
     user_for_template = {
@@ -427,32 +318,7 @@ def home():
 
     return render_template('home.html', meals=sorted_meals[:10], meal_plans=finalized_meal_plans[:5],
         random_subhead=random_subheader(), user=user_for_template, show_home_modal=show_home_modal,
-        help_modal='home', show_onboarding=show_onboarding, ingredients_count=ingredients_count)
-
-
-@routes.route('/close-onboarding', methods=['POST'])
-@login_required
-def close_onboarding():
-    dont_show = request.form.get('dont_show_again') == 'on'
-    print('Dont show again:', dont_show)
-
-    if not dont_show:
-        user = g.get("user") 
-        access_token = g.get("access_token")
-
-        headers = {'Authorization': f'Bearer {access_token}'}
-        api_url = f'{API_BASE_URL}/close-onboarding'
-
-        response = requests.patch(api_url, json={'show_onboarding': False}, headers=headers)
-
-        if response.status_code == 200:
-            clear_and_flash("Onboarding preference saved.", "success")
-        else:
-            error = response.json().get('error', 'Failed to update onboarding setting.')
-            clear_and_flash(error, 'error')
-
-    return redirect(url_for('routes.home'))
-
+        help_modal='home', ingredients_count=ingredients_count)
 
 
 # --------------- #
@@ -2256,47 +2122,3 @@ def profile():
 
 
 
-# Email validation regex pattern
-EMAIL_REGEX = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-
-## ROUTE FOR CONTACT PAGE ✅
-@routes.route('/contact', methods=['GET', 'POST'])
-@login_required
-def contact():
-
-    if request.method == 'POST':
-        name = request.form.get("name")
-        email = request.form.get("email")
-        message = request.form.get("message")
-
-        get_flashed_messages()
-
-        # Validate that all fields are filled
-        if not name or not email or not message:
-            clear_and_flash("All fields are required!", "error")
-            return redirect(url_for("contact"))
-
-        # Validate email format
-        if not re.match(EMAIL_REGEX, email):
-            clear_and_flash("Invalid email format. Please enter a valid email address.", "error")
-            return redirect(url_for("contact"))
-
-        print(f"New message from {name} ({email}): {message}") 
-        send_message(name, email, message)
-
-        return render_template("contact.html", success=True)
-
-    else: 
-        headers = {'Authorization': f"Bearer {g.access_token}"}
-        api_url = f"{API_BASE_URL}/user/profile" 
-
-        get_flashed_messages()
-
-        response = requests.get(api_url, headers=headers)
-        
-        if response.status_code == 200:
-            user_data = response.json()
-        else:
-            user_data = {}
-
-    return render_template('contact.html', random_subhead=random_subheader(), user=user_data)
