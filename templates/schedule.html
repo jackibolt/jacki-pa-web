@@ -1,0 +1,94 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">PLAN</div>
+      <h1 class="page-title">Schedule</h1>
+      <div class="page-sub">Your events, to-dos with due dates, and reminders in one place.</div>
+    </div>
+  </div>
+
+  <form action="{{ url_for('routes.add_event') }}" method="POST"
+        style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 28px;">
+    <div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 4px;">
+      <label for="ev-title" style="font-size: 13px; color: #4a6556;">New event</label>
+      <input id="ev-title" type="text" name="title" maxlength="200" required placeholder="Dentist"
+             style="padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="ev-date" style="font-size: 13px; color: #4a6556;">Date</label>
+      <input id="ev-date" type="date" name="event_date" required value="{{ today }}"
+             style="padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="ev-start" style="font-size: 13px; color: #4a6556;">Start (blank = all day)</label>
+      <input id="ev-start" type="time" name="start_time" style="padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="ev-end" style="font-size: 13px; color: #4a6556;">End</label>
+      <input id="ev-end" type="time" name="end_time" style="padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="ev-every" style="font-size: 13px; color: #4a6556;">Repeat every</label>
+      <input id="ev-every" type="number" name="repeat_value" min="1" max="999" value="1"
+             style="width: 80px; padding: 12px 14px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <label for="ev-unit" style="font-size: 13px; color: #4a6556;">Unit</label>
+      <select id="ev-unit" name="repeat_unit" style="padding: 12px 10px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px; background: #fff;">
+        <option value="once" selected>Doesn't repeat</option>
+        <option value="days">days</option>
+        <option value="weeks">weeks</option>
+        <option value="months">months</option>
+        <option value="years">years</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Add event</button>
+  </form>
+
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px;">
+    <h2 style="margin: 0; font-size: 20px;">{{ range_text }}</h2>
+    <div style="display: flex; gap: 8px;">
+      <a href="{{ url_for('routes.schedule', start=prev_start) }}" class="btn btn-secondary">← Previous week</a>
+      {% if show_today_link %}<a href="{{ url_for('routes.schedule') }}" class="btn btn-secondary">Today</a>{% endif %}
+      <a href="{{ url_for('routes.schedule', start=next_start) }}" class="btn btn-secondary">Next week →</a>
+    </div>
+  </div>
+
+  {% for day in days %}
+  <section style="padding: 14px 0; border-bottom: 1px solid #e3eee7;">
+    <h3 style="margin: 0 0 6px; font-size: 16px; color: {{ '#1a3a2a' if day.is_today else '#4a6556' }};">
+      {{ day.label }} <span style="font-weight: 400; font-size: 14px;">· {{ day.date_text }}</span>
+    </h3>
+    {% if not day['items'] %}
+      <div style="font-size: 14px; color: #7a8f82;">Nothing scheduled.</div>
+    {% endif %}
+    {% for item in day['items'] %}
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 0;">
+      <div style="width: 130px; font-size: 13px; color: #4a6556;">{{ item.when }}</div>
+      <div style="flex: 1 1 220px; min-width: 0;">
+        <span style="font-size: 15px; font-weight: 500;">{{ item.title }}</span>
+        {% if item.overdue %}<span style="font-size: 12px; color: #b03a4e; margin-left: 6px;">Overdue</span>{% endif %}
+        {% if item.repeats %}<span style="font-size: 12px; color: #4a6556; margin-left: 6px;">Repeats</span>{% endif %}
+      </div>
+      {% if item.type == 'event' %}
+        <span style="font-size: 12px; font-weight: 500; background: #e6f2ea; color: #1a3a2a; border-radius: 20px; padding: 3px 10px;">Event</span>
+        <form action="{{ url_for('routes.delete_event_item', event_id=item.id) }}" method="POST" style="margin: 0;"
+              onsubmit="return confirm('Delete this event{% if item.repeats %} and all its repeats{% endif %}?');">
+          <button type="submit" class="btn btn-secondary" aria-label="Delete: {{ item.title }}">Delete</button>
+        </form>
+      {% elif item.type == 'reminder' %}
+        <span style="font-size: 12px; font-weight: 500; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 3px 10px;">Reminder</span>
+        <a href="{{ url_for('routes.reminders') }}" class="btn btn-secondary">Open</a>
+      {% else %}
+        <span style="font-size: 12px; font-weight: 500; background: #eef3fa; color: #2b4a7a; border-radius: 20px; padding: 3px 10px;">To-do</span>
+        <a href="{{ url_for('routes.todos') }}" class="btn btn-secondary">Open</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}
