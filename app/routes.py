@@ -2597,6 +2597,14 @@ def _whoop_summary(token, today):
         w['duration'] = _fmt_minutes(w['minutes'])
     if data.get('totals'):
         data['totals']['duration'] = _fmt_minutes(data['totals']['minutes'])
+    totals = [0] * 6
+    for w in data.get('workouts', []):
+        for i, m in enumerate((w.get('zone_minutes') or [])[:6]):
+            totals[i] += m or 0
+    if sum(totals[1:]):
+        top = max(totals[1:])
+        data['zones'] = [{'zone': i, 'minutes': totals[i], 'label': _fmt_minutes(totals[i]), 'pct': round(totals[i] / top * 100)}
+                         for i in range(1, 6)]
     rec = data.get('recovery')
     if rec and rec.get('score') is not None:
         rec['tone'] = 'green' if rec['score'] >= 67 else 'yellow' if rec['score'] >= 34 else 'red'
