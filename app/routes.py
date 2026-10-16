@@ -275,7 +275,7 @@ def home():
         if i['type'] in ('todo', 'reminder', 'prep'):
             agenda.append(i)
         (timed if i.get('start_time') else all_day).append(i)
-    events_today = [i for i in schedule_items if i['type'] in ('event', 'meal')]
+    events_today = [i for i in schedule_items if i['type'] in ('event', 'gcal', 'meal')]
     hour = datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).hour
     greeting = 'Good morning' if hour < 12 else 'Good afternoon' if hour < 17 else 'Good evening'
 
