@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const href = link.getAttribute('href');
         
         // Check exact match or if it's a meal plan related path
-        if (currentPath === href || (href === '/meal-plans' && currentPath === '/meal-plan/new')) {
+        if (currentPath === href) {
             link.classList.add('active');
         }
     });
