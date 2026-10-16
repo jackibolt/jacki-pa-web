@@ -34,7 +34,7 @@
   </style>
   <section style="margin-bottom: 16px; display: flex; flex-wrap: wrap; align-items: stretch; gap: 12px;">
     {% if weather %}
-    <div style="flex: 1.4 1 340px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 12px 16px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 28px;">
+    <div style="flex: 1.4 1 340px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 12px 16px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; align-content: center; justify-content: center; gap: 14px 28px;">
     <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
       <div style="font-size: 40px; line-height: 1;" aria-hidden="true">{{ weather.now.emoji }}</div>
       <div>
@@ -43,13 +43,13 @@
         <div style="font-size: 12px; color: #7a8f82;">{{ weather.place }}</div>
       </div>
     </div>
-    <div style="display: grid; flex: 1 1 250px; max-width: 340px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+    <div style="display: grid; flex: 1 1 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
       {% for d in weather.days %}
-      <div style="text-align: center; padding: 10px 4px; border-radius: 10px; background: {{ '#e6f2ea' if loop.first else '#f5f9f6' }};">
-        <div style="font-size: 12px; font-weight: 600; color: #4a6556;">{{ d.label }}</div>
-        <div style="font-size: 20px;" title="{{ d.words }}" aria-label="{{ d.words }}">{{ d.emoji }}</div>
-        <div style="font-size: 13px;"><strong>{{ d.high }}°</strong> <span style="color: #7a8f82;">{{ d.low }}°</span></div>
-        <div style="font-size: 12px; color: {{ '#2b6a9a' if d.rain and d.rain >= 40 else '#7a8f82' }};">{{ d.rain }}% rain</div>
+      <div style="text-align: center; padding: 6px 2px; border-radius: 8px; background: {{ '#e6f2ea' if loop.first else '#f5f9f6' }};">
+        <div style="font-size: 11px; font-weight: 600; color: #4a6556;">{{ d.label }}</div>
+        <div style="font-size: 16px;" title="{{ d.words }}" aria-label="{{ d.words }}">{{ d.emoji }}</div>
+        <div style="font-size: 12px;"><strong>{{ d.high }}°</strong> <span style="color: #7a8f82;">{{ d.low }}°</span></div>
+        <div style="font-size: 11px; color: {{ '#2b6a9a' if d.rain and d.rain >= 40 else '#7a8f82' }};">{{ d.rain }}%</div>
       </div>
       {% endfor %}
     </div>
