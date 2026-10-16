@@ -288,7 +288,7 @@ def home():
     }
 
     from app.weather import forecast
-    return render_template('home.html', weather=forecast(), working_location=working_location, google_reconnect=google_reconnect,
+    return render_template('home.html', weather=forecast(), whoop=_whoop_summary(access_token, today), working_location=working_location, google_reconnect=google_reconnect,
         random_subhead=random_subheader(), user=user_for_template, show_home_modal=show_home_modal,
         help_modal='home',
         greeting=greeting, today_text=today.strftime('%A, %B %-d'),
@@ -2563,3 +2563,90 @@ def google_disconnect():
     clear_and_flash("Google Calendar disconnected." if response.status_code == 200 else "Could not disconnect.",
                     "success" if response.status_code == 200 else "error")
     return redirect(url_for('routes.google_calendar'))
+
+
+
+# ----------------- #
+## WHOOP (read-only) ##
+
+def _week_start(today):
+    from datetime import timedelta
+    return today - timedelta(days=today.weekday())  # Monday
+
+
+def _fmt_minutes(m):
+    return f"{m // 60}h {m % 60}m" if m >= 60 else f"{m} min"
+
+
+def _whoop_summary(token, today):
+    """WHOOP recovery + this week's workouts for the Today page and the WHOOP page. {} if unavailable."""
+    try:
+        res = requests.get(f"{API_BASE_URL}/whoop/summary", timeout=12,
+                           params={'start': _week_start(today).isoformat(), 'end': today.isoformat()},
+                           headers={'Authorization': f"Bearer {token}"})
+        data = res.json() if res.status_code == 200 else {}
+    except requests.RequestException:
+        return {}
+    for w in data.get('workouts', []):
+        w['day'] = datetime.strptime(w['date'], '%Y-%m-%d').strftime('%a')
+        w['duration'] = _fmt_minutes(w['minutes'])
+    if data.get('totals'):
+        data['totals']['duration'] = _fmt_minutes(data['totals']['minutes'])
+    rec = data.get('recovery')
+    if rec and rec.get('score') is not None:
+        rec['tone'] = 'green' if rec['score'] >= 67 else 'yellow' if rec['score'] >= 34 else 'red'
+    return data
+
+
+def _whoop_callback_url():
+    base = os.getenv('PUBLIC_BASE_URL', '').rstrip('/') or request.url_root.rstrip('/')
+    if base.startswith('http://') and 'localhost' not in base and '127.0.0.1' not in base:
+        base = 'https://' + base[len('http://'):]
+    return f"{base}{url_for('routes.whoop_callback')}"
+
+
+@routes.route('/whoop', methods=['GET'])
+@login_required
+def whoop_page():
+    return render_template('whoop.html', info=_whoop_summary(g.access_token, _today()),
+                           callback_url=_whoop_callback_url(), random_subhead=random_subheader())
+
+
+@routes.route('/whoop/connect', methods=['GET'])
+@login_required
+def whoop_connect():
+    state = os.urandom(8).hex()
+    session['whoop_state'] = state
+    response = requests.post(f"{API_BASE_URL}/whoop/auth_url", timeout=15, headers={'Authorization': f"Bearer {g.access_token}"},
+                             json={'redirect_uri': _whoop_callback_url(), 'state': state})
+    if response.status_code != 200:
+        clear_and_flash(response.json().get('error', 'Could not start the WHOOP sign-in.'), "error")
+        return redirect(url_for('routes.whoop_page'))
+    return redirect(response.json()['url'])
+
+
+@routes.route('/whoop/callback', methods=['GET'])
+@login_required
+def whoop_callback():
+    expected = session.pop('whoop_state', None)
+    if request.args.get('error'):
+        clear_and_flash("WHOOP was not connected.", "error")
+    elif not expected or request.args.get('state') != expected or not request.args.get('code'):
+        clear_and_flash("That WHOOP sign-in could not be verified. Please try again.", "error")
+    else:
+        response = requests.post(f"{API_BASE_URL}/whoop/connect", timeout=20, headers={'Authorization': f"Bearer {g.access_token}"},
+                                 json={'code': request.args['code'], 'redirect_uri': _whoop_callback_url()})
+        if response.status_code == 200:
+            clear_and_flash("WHOOP connected.", "success")
+        else:
+            clear_and_flash(response.json().get('error', 'Could not connect WHOOP.'), "error")
+    return redirect(url_for('routes.whoop_page'))
+
+
+@routes.route('/whoop/disconnect', methods=['POST'])
+@login_required
+def whoop_disconnect():
+    response = requests.delete(f"{API_BASE_URL}/whoop", timeout=15, headers={'Authorization': f"Bearer {g.access_token}"})
+    ok = response.status_code == 200
+    clear_and_flash("WHOOP disconnected." if ok else "Could not disconnect.", "success" if ok else "error")
+    return redirect(url_for('routes.whoop_page'))

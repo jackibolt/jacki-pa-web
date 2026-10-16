@@ -20,8 +20,10 @@
   </div>
 
   <!-- WEATHER -->
-  {% if weather %}
+  {% set whoop_on = whoop and whoop.connected and not whoop.reconnect and not whoop.problem %}
+  {% if weather or whoop_on or (whoop and whoop.reconnect) %}
   <section style="margin-bottom: 20px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px;">
+    {% if weather %}
     <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
       <div style="font-size: 40px; line-height: 1;" aria-hidden="true">{{ weather.now.emoji }}</div>
       <div>
@@ -40,7 +42,47 @@
       </div>
       {% endfor %}
     </div>
-    {% if weather.hours %}
+    {% endif %}
+    {% if whoop_on %}
+    <div style="flex: 1 1 340px; min-width: 0;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
+        <div style="font-size: 13px; font-weight: 600; color: #4a6556;">WHOOP · this week</div>
+        <a href="{{ url_for('routes.whoop_page') }}" style="font-size: 13px;">Details →</a>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: flex-start;">
+        {% if whoop.recovery %}
+        <div style="display: flex; align-items: center; gap: 12px;">
+          {% set rc = whoop.recovery %}
+          {% set tone = {'green': ['#d9f2e3', '#1f7a45'], 'yellow': ['#fdf1d6', '#8a6a10'], 'red': ['#fbe0e3', '#a8283c']}.get(rc.tone, ['#eef3fa', '#2b4a7a']) %}
+          <div style="width: 58px; height: 58px; border-radius: 50%; background: {{ tone[0] }}; color: {{ tone[1] }}; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700;" aria-label="Recovery {{ rc.score }} percent">{% if rc.score is not none %}{{ rc.score }}%{% else %}…{% endif %}</div>
+          <div>
+            <div style="font-size: 14px; font-weight: 600;">Recovery</div>
+            {% if rc.score is not none and rc.state == 'SCORED' %}
+            <div style="font-size: 12px; color: #4a6556;">{% if rc.hrv %}HRV {{ rc.hrv }} ms{% endif %}{% if rc.hrv and rc.resting_hr %} · {% endif %}{% if rc.resting_hr %}RHR {{ rc.resting_hr }}{% endif %}</div>
+            {% if rc.calibrating %}<div style="font-size: 12px; color: #7a8f82;">Still calibrating</div>{% endif %}
+            {% else %}<div style="font-size: 12px; color: #7a8f82;">Still being scored</div>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+        <div style="flex: 1 1 240px; min-width: 0;">
+          {% if whoop.workouts %}
+          <div style="font-size: 13px; color: #4a6556; margin-bottom: 4px;"><strong>{{ whoop.totals.count }}</strong> workout{{ '' if whoop.totals.count == 1 else 's' }} · {{ whoop.totals.duration }}</div>
+          {% for w in whoop.workouts[-5:]|reverse %}
+          <div style="padding: 5px 0; border-top: 1px solid #eef4f0; font-size: 14px;">
+            <div><span style="color: #7a8f82; font-size: 12px; display: inline-block; width: 30px;">{{ w.day }}</span><strong>{{ w.sport }}</strong> · {{ w.duration }}{% if w.strain is not none %} · strain {{ w.strain }}{% endif %}</div>
+            {% if w.avg_hr %}<div style="font-size: 12px; color: #4a6556; margin-left: 30px;">HR {{ w.avg_hr }} avg{% if w.max_hr %} / {{ w.max_hr }} max{% endif %}</div>{% endif %}
+          </div>
+          {% endfor %}
+          {% if whoop.workouts|length > 5 %}<div style="font-size: 12px; margin-top: 4px;"><a href="{{ url_for('routes.whoop_page') }}">+{{ whoop.workouts|length - 5 }} more</a></div>{% endif %}
+          {% else %}
+          <div style="font-size: 14px; color: #7a8f82;">No workouts yet this week.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% elif whoop and whoop.reconnect %}
+    <div style="flex: 1 1 340px; min-width: 0; font-size: 14px; color: #6b4410;">WHOOP needs to be reconnected. <a href="{{ url_for('routes.whoop_connect') }}">Reconnect</a></div>
+    {% elif weather and weather.hours %}
     <div style="flex: 1 1 340px; min-width: 0;">
       <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-bottom: 8px;">
         <div style="font-size: 13px; font-weight: 600; color: #4a6556;">Next 12 hours</div>
