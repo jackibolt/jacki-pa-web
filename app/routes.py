@@ -2777,6 +2777,31 @@ def _api_headers():
     return {'Authorization': f"Bearer {g.access_token}"}
 
 
+@routes.route('/meals/week/side/<int:row_id>', methods=['POST'])
+@login_required
+def meals_week_add_side(row_id):
+    if not request.form.get('meal_id'):
+        return jsonify({'error': "Pick a meal from the list."}), 400
+    try:
+        res = requests.post(f"{API_BASE_URL}/meals/schedule/{row_id}/sides", headers=_api_headers(), timeout=15,
+                            json={'meal_id': request.form.get('meal_id')})
+        body = res.json()
+    except (requests.RequestException, ValueError):
+        return jsonify({'error': "Could not add that side right now."}), 502
+    return jsonify(body), (201 if res.status_code == 201 else 400)
+
+
+@routes.route('/meals/week/side/<int:row_id>/remove/<int:meal_id>', methods=['POST'])
+@login_required
+def meals_week_remove_side(row_id, meal_id):
+    try:
+        res = requests.delete(f"{API_BASE_URL}/meals/schedule/{row_id}/sides/{meal_id}", headers=_api_headers(), timeout=15)
+        ok = res.status_code == 200
+    except requests.RequestException:
+        ok = False
+    return jsonify({'ok': ok}), (200 if ok else 502)
+
+
 def _load_templates():
     try:
         res = requests.get(f"{API_BASE_URL}/week_templates", headers=_api_headers(), timeout=15)
@@ -2849,13 +2874,65 @@ def meals_week_apply():
     days = [{'iso': (start + timedelta(days=n)).isoformat(), 'label': (start + timedelta(days=n)).strftime('%a'),
              'text': (start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
     proposed = [{'meal_id': i['meal_id'], 'title': i['title'], 'slot': i['slot'] or 'Dinner', 'label': i.get('label') or '',
-                 'side_dish_id': i.get('side_dish_id'), 'day': days[i['day_offset']]['iso']}
+                 'sides': i.get('sides') or [], 'day': days[i['day_offset']]['iso']}
                 for i in tpl.get('items', []) if 0 <= i['day_offset'] < 7]
     existing_rows = [{'id': e['id'], 'meal_id': e['meal_id'], 'title': e['title'], 'slot': e.get('meal_type') or 'Dinner',
-                      'label': e.get('label') or '', 'day': e['date']} for e in existing]
+                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or []} for e in existing]
     return render_template('meals_week_apply.html', tpl_name=tpl['name'], days=days, start=start.isoformat(),
-                           proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS,
+                           proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS, mode='week',
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}")
+
+
+@routes.route('/meals/week/pick', methods=['GET'])
+@login_required
+def meals_week_pick():
+    """Random picks shown as a list on the review screen. Nothing is saved until the person assigns days and confirms."""
+    from datetime import timedelta
+    try:
+        start = _week_start(datetime.strptime(request.args.get('start', ''), '%Y-%m-%d').date())
+    except ValueError:
+        start = _week_start(_today())
+    end = start + timedelta(days=6)
+    slot = request.args.get('slot') if request.args.get('slot') in WEEK_SLOTS else 'Dinner'
+    try:
+        count = max(1, min(int(request.args.get('count', 5)), 14))
+        pres = requests.get(f"{API_BASE_URL}/meals/suggest", params={'count': count, 'slot': slot},
+                            headers=_api_headers(), timeout=15)
+        sres = requests.get(f"{API_BASE_URL}/schedule", params={'start': start.isoformat(), 'end': end.isoformat()},
+                            headers=_api_headers(), timeout=15)
+    except (requests.RequestException, ValueError):
+        clear_and_flash("Could not pick meals right now.", "error")
+        return redirect(_week_url(start.isoformat()))
+    picks = pres.json().get('meals', []) if pres.status_code == 200 else []
+    if not picks:
+        clear_and_flash("No meals to pick from yet. Add some meals first.", "error")
+        return redirect(_week_url(start.isoformat()))
+    existing = [i for i in (sres.json().get('items', []) if sres.status_code == 200 else []) if i['type'] == 'meal']
+    days = [{'iso': (start + timedelta(days=n)).isoformat(), 'label': (start + timedelta(days=n)).strftime('%a'),
+             'text': (start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
+    proposed = [{'meal_id': m['id'], 'title': m['title'], 'slot': slot, 'label': '', 'sides': [], 'day': ''} for m in picks]
+    existing_rows = [{'id': e['id'], 'meal_id': e['meal_id'], 'title': e['title'], 'slot': e.get('meal_type') or 'Dinner',
+                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or []} for e in existing]
+    return render_template('meals_week_apply.html', tpl_name='Random picks', days=days, start=start.isoformat(),
+                           proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS, mode='pick',
+                           range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}")
+
+
+@routes.route('/meals/week/pick/one', methods=['GET'])
+@login_required
+def meals_week_pick_one():
+    """One replacement pick for the review screen's re-roll button."""
+    slot = request.args.get('slot') if request.args.get('slot') in WEEK_SLOTS else 'Dinner'
+    exclude = ','.join(x for x in request.args.get('exclude', '').split(',') if x.strip().isdigit())
+    try:
+        res = requests.get(f"{API_BASE_URL}/meals/suggest", params={'count': 1, 'slot': slot, 'exclude': exclude},
+                           headers=_api_headers(), timeout=15)
+        picks = res.json().get('meals', []) if res.status_code == 200 else []
+    except (requests.RequestException, ValueError):
+        picks = []
+    if not picks:
+        return jsonify({'error': 'No other meals to pick from.'}), 404
+    return jsonify(picks[0]), 200
 
 
 @routes.route('/meals/week/apply', methods=['POST'])
@@ -2863,7 +2940,7 @@ def meals_week_apply():
 def meals_week_apply_confirm():
     data = request.get_json(silent=True) or {}
     items = [{'date': i.get('day'), 'meal_id': i.get('meal_id'), 'slot': i.get('slot'), 'label': i.get('label') or '',
-              'side_dish_id': i.get('side_dish_id')} for i in data.get('items', [])]
+              'sides': [x.get('meal_id') for x in i.get('sides') or []]} for i in data.get('items', [])]
     if not items:
         return jsonify({'error': 'Nothing to add.'}), 400
     try:
