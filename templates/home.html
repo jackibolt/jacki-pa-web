@@ -77,7 +77,7 @@
       <div style="flex: 1 1 220px; min-width: 0;">
       {% if whoop.workouts %}
       <div style="font-size: 13px; color: #4a6556; margin-bottom: 2px;"><strong>{{ whoop.totals.count }}</strong> workout{{ '' if whoop.totals.count == 1 else 's' }} · {{ whoop.totals.duration }}</div>
-      {% for w in whoop.workouts[-6:]|reverse %}
+      {% for w in whoop.workouts[-6:] %}
       <div style="display: flex; align-items: center; gap: 14px; padding: 3px 0; border-top: 1px solid #eef4f0;">
         <div style="flex: none; width: 36px; color: #7a8f82; font-size: 13px;">{{ w.day }}</div>
         <div style="flex: 1; min-width: 0;">
