@@ -7,6 +7,10 @@
       <div class="page-eyebrow">{{ today_text | upper }}</div>
       <h1 class="page-title">{{ greeting }}, {{ user.name or 'there' }}</h1>
     </div>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+      <a href="{{ url_for('routes.new_meal_plan') }}" class="btn btn-primary" style="width: auto;">Plan meals</a>
+      <a href="{{ url_for('routes.meal_plans') }}" class="btn btn-secondary" style="width: auto;">Meal plans</a>
+    </div>
   </div>
 
   <!-- QUICK ADD -->
