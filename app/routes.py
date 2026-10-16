@@ -262,7 +262,7 @@ def home():
         todays = [i for i in meal_items if i['date'] == day.isoformat()]
         sections = []  # one per meal type that has something planned, in order of the day
         for kind in ('Breakfast', 'Lunch', 'Snack', 'Dinner', 'Dessert', 'Meal'):
-            dishes = [{'title': i['title'], 'label': i.get('label')} for i in todays if i.get('meal_type', 'Meal') == kind]
+            dishes = [{'title': i['title'], 'label': i.get('label'), 'meal_id': i.get('meal_id')} for i in todays if i.get('meal_type', 'Meal') == kind]
             if dishes:
                 sections.append({'type': kind, 'dishes': dishes})
         week_days.append({'label': 'Tonight' if n == 0 else day.strftime('%a'), 'date_text': day.strftime('%b %-d'),
