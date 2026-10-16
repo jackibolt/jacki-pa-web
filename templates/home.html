@@ -11,10 +11,6 @@
       <div class="page-eyebrow">{{ today_text | upper }}</div>
       <h1 class="page-title">{{ greeting }}, {{ user.name or 'there' }}</h1>
     </div>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-      <a href="{{ url_for('routes.new_meal_plan') }}" class="btn btn-primary" style="width: auto;">Plan meals</a>
-      <a href="{{ url_for('routes.meal_plans') }}" class="btn btn-secondary" style="width: auto;">Meal plans</a>
-    </div>
   </div>
 
   <!-- QUICK ADD -->
@@ -91,9 +87,15 @@
         <div style="font-size: 14px;">Coming later.</div>
       </section>
   <!-- MEALS FOR THE WEEK -->
-  {% if has_planned_meals %}
   <section style="margin-bottom: 28px;">
-    <h2 style="margin: 0 0 10px; font-size: 18px;">Meals for the Week</h2>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;">
+      <h2 style="margin: 0; font-size: 18px;">Meals for the Week</h2>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        <a href="{{ url_for('routes.new_meal_plan') }}" class="btn btn-primary" style="width: auto;">Plan meals</a>
+        <a href="{{ url_for('routes.meal_plans') }}" class="btn btn-secondary" style="width: auto;">Meal plans</a>
+      </div>
+    </div>
+    {% if has_planned_meals %}
     <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;">
       {% for day in week_days %}
       {% set dark = day.is_today %}
@@ -118,8 +120,10 @@
       </div>
       {% endfor %}
     </div>
+    {% else %}
+    <div style="font-size: 14px; color: #6b8576;">Nothing planned yet. Make a plan, then give its meals days.</div>
+    {% endif %}
   </section>
-  {% endif %}
 
 </div>
 
