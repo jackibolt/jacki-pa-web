@@ -2,6 +2,12 @@
 
 {% block content %}
 <div class="page">
+  {% if google_reconnect %}
+  <div role="alert" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; background: #fdf1e3; border: 1px solid #ecc88f; color: #6b4410; border-radius: 12px; padding: 12px 16px; margin-bottom: 18px;">
+    <span>Google Calendar needs to be reconnected. Google ends the connection every 7 days while the app is in testing.</span>
+    <a href="{{ url_for('routes.google_connect') }}" class="btn btn-primary" style="width: auto; flex: 0 0 auto;">Reconnect</a>
+  </div>
+  {% endif %}
   <div class="page-header">
     <div>
       <div class="page-eyebrow">PLAN</div>
