@@ -2671,28 +2671,13 @@ def whoop_disconnect():
 # ----------------- #
 ## MEALS WEEK VIEW ##
 
-# (meal type, who it's for, heading). Kids' and Jacki's lunch are both "Lunch", told apart by label.
-WEEK_SLOTS = [('Breakfast', None, 'Breakfast'), ('Lunch', 'Kids', "Kids' lunch"), ('Lunch', 'Jacki', "Jacki's lunch"),
-              ('Snack', None, 'Snack'), ('Dinner', None, 'Dinner')]
-WEEK_SLOT_VALUES = [f"{kind}|{label or ''}" for kind, label, _ in WEEK_SLOTS]
+WEEK_SLOTS = ['Breakfast', 'Lunch', 'Snack', 'Dinner']
 
 
 def _week_dishes(todays):
-    """Group one day's planned dishes into the five slots, plus 'Lunch' / 'Other' for anything that doesn't fit."""
-    left = list(todays)
-    rows = []
-    for kind, label, title in WEEK_SLOTS:
-        if label:
-            mine = [i for i in left if i.get('meal_type') == kind and i.get('label') == label]
-        else:
-            mine = [i for i in left if i.get('meal_type') == kind]
-        for i in mine:
-            left.remove(i)
-        rows.append({'title': title, 'value': f"{kind}|{label or ''}", 'dishes': mine})
-    lunch = [i for i in left if i.get('meal_type') == 'Lunch']
-    other = [i for i in left if i.get('meal_type') != 'Lunch']
-    if lunch:
-        rows.insert(3, {'title': 'Lunch', 'value': None, 'dishes': lunch})
+    """Group one day's planned dishes by meal type, plus 'Other' for anything that doesn't fit."""
+    rows = [{'title': kind, 'value': kind, 'dishes': [i for i in todays if i.get('meal_type') == kind]} for kind in WEEK_SLOTS]
+    other = [i for i in todays if i.get('meal_type') not in WEEK_SLOTS]
     if other:
         rows.append({'title': 'Other', 'value': None, 'dishes': other})
     return rows
@@ -2730,10 +2715,12 @@ def meals_week():
         day = start + timedelta(days=n)
         todays = [i for i in meal_items if i['date'] == day.isoformat()]
         rows = _week_dishes(todays)
-        filled = {r['value']: [d['title'] for d in r['dishes']] for r in rows if r['value'] and r['dishes']}
+        filled = {r['value']: [d['title'] + (f" ({d['label']})" if d.get('label') else '') for d in r['dishes']]
+                  for r in rows if r['value'] and r['dishes']}
         days.append({'iso': day.isoformat(), 'label': day.strftime('%a'), 'text': day.strftime('%b %-d'),
                      'is_today': day == today, 'rows': [r for r in rows if r['dishes']], 'filled': filled})
-    return render_template('meals_week.html', days=days, options=options, slots=WEEK_SLOTS,
+    tags = sorted({i['label'] for i in meal_items if i.get('label')})
+    return render_template('meals_week.html', days=days, options=options, slots=WEEK_SLOTS, tags=tags,
                            start=start.isoformat(), prev_start=(start - timedelta(days=7)).isoformat(),
                            next_start=(start + timedelta(days=7)).isoformat(), is_this_week=(start == _week_start(today)),
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
@@ -2744,7 +2731,8 @@ def meals_week():
 @login_required
 def meals_week_add():
     start = request.form.get('start')
-    slot, _, label = request.form.get('slot', '').partition('|')
+    slot = request.form.get('slot', '')
+    label = request.form.get('tag', '').strip()[:30]
     if not request.form.get('meal_id'):
         clear_and_flash("Pick a meal from the list.", "error")
         return redirect(_week_url(start))

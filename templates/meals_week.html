@@ -26,7 +26,7 @@
         {% for row in day.rows %}{% for d in row.dishes %}
         <div style="display: flex; align-items: baseline; gap: 12px; padding: 3px 0;">
           <div style="flex: none; width: 92px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .6;">{{ row.title }}</div>
-          <a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="flex: 1; min-width: 0; font-size: 15px; color: inherit; text-decoration: none;">{{ d.title }}</a>
+          <a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="flex: 1; min-width: 0; font-size: 15px; color: inherit; text-decoration: none;">{{ d.title }}{% if d.label %} <span style="font-size: 11px; opacity: .6; border: 1px solid currentColor; border-radius: 8px; padding: 0 6px; margin-left: 4px; white-space: nowrap;">{{ d.label }}</span>{% endif %}</a>
           <form action="{{ url_for('routes.meals_week_remove', row_id=d.id) }}" method="POST" style="margin: 0;">
             <input type="hidden" name="start" value="{{ start }}">
             <button type="submit" class="wk-x" title="Remove" aria-label="Remove {{ d.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px;">×</button>
@@ -53,22 +53,26 @@
     <datalist id="wk-meals">
       {% for m in options %}<option value="{{ m.name }}" data-id="{{ m.id }}"></option>{% endfor %}
     </datalist>
-    {% for kind, label, title in slots %}
-    <form class="wk-row" action="{{ url_for('routes.meals_week_add') }}" method="POST" data-slot="{{ kind }}|{{ label or '' }}" style="margin: 0; padding: 10px 0; border-top: 1px solid #e3eee7;">
+    <datalist id="wk-tags">
+      {% for t in tags %}<option value="{{ t }}"></option>{% endfor %}
+    </datalist>
+    {% for kind in slots %}
+    <form class="wk-row" action="{{ url_for('routes.meals_week_add') }}" method="POST" data-slot="{{ kind }}" style="margin: 0; padding: 10px 0; border-top: 1px solid #e3eee7;">
       <input type="hidden" name="start" value="{{ start }}">
       <input type="hidden" name="date" class="wk-date">
-      <input type="hidden" name="slot" value="{{ kind }}|{{ label or '' }}">
+      <input type="hidden" name="slot" value="{{ kind }}">
       <input type="hidden" name="meal_id" class="wk-meal-id">
       <div style="display: flex; align-items: center; gap: 12px;">
         <div style="flex: 1; min-width: 0;">
-          <div style="font-size: 15px; font-weight: 600;">{{ title }}</div>
+          <div style="font-size: 15px; font-weight: 600;">{{ kind }}</div>
           <div class="wk-have" style="font-size: 13px; color: #7a8f82;"></div>
         </div>
-        <button type="button" class="wk-plus" aria-label="Add to {{ title }}" style="flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #c5dccd; background: transparent; color: #1a3a2a; font-size: 20px; line-height: 1; cursor: pointer;">+</button>
+        <button type="button" class="wk-plus" aria-label="Add to {{ kind }}" style="flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #c5dccd; background: transparent; color: #1a3a2a; font-size: 20px; line-height: 1; cursor: pointer;">+</button>
       </div>
       <div class="wk-entry" style="display: none; margin-top: 8px;">
-        <div style="display: flex; gap: 8px;">
-          <input type="text" class="wk-meal" list="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="flex: 1 1 auto; width: 0; min-width: 0; box-sizing: border-box; padding: 8px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+          <input type="text" class="wk-meal" list="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="flex: 1 1 100%; box-sizing: border-box; padding: 8px;">
+          <input type="text" name="tag" maxlength="30" list="wk-tags" placeholder="Tag (optional), e.g. Kids" autocomplete="off" style="flex: 1 1 0; min-width: 0; box-sizing: border-box; padding: 8px;">
           <button type="submit" class="btn btn-primary" style="flex: none; width: auto; padding: 8px 18px;">Add</button>
         </div>
         <div class="wk-err" style="min-height: 16px; font-size: 13px; color: #b03a4e; margin-top: 4px;"></div>
@@ -94,7 +98,7 @@
           r.querySelector('.wk-date').value = b.dataset.date;
           r.querySelector('.wk-have').textContent = (filled[r.dataset.slot] || []).join(', ');
           r.querySelector('.wk-entry').style.display = 'none';
-          r.querySelector('.wk-meal').value = '';
+          r.querySelector('.wk-meal').value = ''; r.querySelector('[name=tag]').value = '';
           r.querySelector('.wk-err').textContent = '';
         });
         dlg.showModal();
