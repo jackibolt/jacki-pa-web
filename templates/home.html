@@ -48,7 +48,7 @@
     {% if whoop_on %}
     <div style="flex: 1.6 1 420px; min-width: 0;">
       <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
-        <div style="font-size: 13px; font-weight: 600; color: #4a6556;">WHOOP · this week</div>
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #4a6556;"><img src="/static/images/whoop-logo.png" alt="WHOOP" style="height: 14px; width: auto; display: block;"><span>· this week</span></div>
         <a href="{{ url_for('routes.whoop_page') }}" style="font-size: 13px;">Details →</a>
       </div>
       {% if whoop.recovery %}
