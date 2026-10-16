@@ -55,8 +55,8 @@
       {% if whoop.recovery %}
       <div style="flex: none; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; min-width: 96px;">
         {% set rc = whoop.recovery %}
-        {% set tone = {'green': ['#d9f2e3', '#1f7a45'], 'yellow': ['#fdf1d6', '#8a6a10'], 'red': ['#fbe0e3', '#a8283c']}.get(rc.tone, ['#eef3fa', '#2b4a7a']) %}
-        <div style="width: 76px; height: 76px; border-radius: 50%; background: {{ tone[0] }}; color: {{ tone[1] }}; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700;" aria-label="Recovery {{ rc.score }} percent">{% if rc.score is not none %}{{ rc.score }}%{% else %}…{% endif %}</div>
+        {% set ring = {'green': '#6ee847', 'yellow': '#f9de4b', 'red': '#e93434'}.get(rc.tone, '#d5dfd9') %}
+        <div style="width: 76px; height: 76px; border-radius: 50%; box-sizing: border-box; border: 7px solid {{ ring }}; background: #fff; color: #1d2b24; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700;" aria-label="Recovery {{ rc.score }} percent">{% if rc.score is not none %}{{ rc.score }}%{% else %}…{% endif %}</div>
         <div style="font-size: 15px; font-weight: 600;">Recovery</div>
         {% if rc.score is not none and rc.state == 'SCORED' %}
         <div style="font-size: 12px; color: #4a6556;">{% if rc.hrv %}HRV {{ rc.hrv }} ms{% endif %}{% if rc.hrv and rc.resting_hr %}<br>{% endif %}{% if rc.resting_hr %}RHR {{ rc.resting_hr|round|int }}{% endif %}</div>
@@ -77,7 +77,7 @@
         {% if w.strain is not none %}
         <svg viewBox="0 0 56 56" width="52" height="52" role="img" aria-label="Strain {{ w.strain }} out of 21" style="flex: none;">
           <path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="#e8f0ea" stroke-width="6" stroke-linecap="round"/>
-          {% if w.strain > 0 %}<path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="{{ '#3b7ddd' if w.strain < 14 else '#e0702e' if w.strain < 18 else '#d23a4e' }}" stroke-width="6" stroke-linecap="round" pathLength="21" stroke-dasharray="{{ [w.strain, 21]|min }} 21"/>{% endif %}
+          {% if w.strain > 0 %}<path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="#4090e0" stroke-width="6" stroke-linecap="round" pathLength="21" stroke-dasharray="{{ [w.strain, 21]|min }} 21"/>{% endif %}
           <text x="28" y="33" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2b24">{{ w.strain }}</text>
         </svg>
         {% endif %}
