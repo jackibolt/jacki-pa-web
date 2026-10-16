@@ -23,16 +23,21 @@
         <div style="font-size: 12px; opacity: .65;">{{ day.text }}</div>
       </div>
       <div style="flex: 1 1 220px; min-width: 0;">
-        {% for row in day.rows %}{% for d in row.dishes %}
-        <div style="display: flex; align-items: baseline; gap: 12px; padding: 3px 0;">
-          <div style="flex: none; width: 92px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .6;">{{ row.title }}</div>
+        {% for row in day.rows %}
+        {% set tone = {'Breakfast': ['#c27a0a', '#f2c46d'], 'Lunch': ['#c2417a', '#f09ac0'], 'Snack': ['#2f8f5b', '#8fd8ae'], 'Dinner': ['#5b4fc4', '#b3abf0']}.get(row.title, ['#7a8f82', '#b5c4ba']) %}
+        <div style="padding: 5px 0;{{ ' border-top: 1px solid ' ~ ('rgba(245,240,232,.14)' if day.is_today else '#eef4f0') ~ ';' if not loop.first else '' }}">
+        {% for d in row.dishes %}
+        <div style="display: flex; align-items: baseline; gap: 12px; padding: 2px 0;">
+          <div style="flex: none; width: 92px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: {{ tone[1] if day.is_today else tone[0] }};">{{ row.title if loop.first else '' }}</div>
           <a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="flex: 1; min-width: 0; font-size: 15px; color: inherit; text-decoration: none;">{{ d.title }}{% if d.label %} <span style="font-size: 11px; opacity: .6; border: 1px solid currentColor; border-radius: 8px; padding: 0 6px; margin-left: 4px; white-space: nowrap;">{{ d.label }}</span>{% endif %}</a>
           <form action="{{ url_for('routes.meals_week_remove', row_id=d.id) }}" method="POST" style="margin: 0;">
             <input type="hidden" name="start" value="{{ start }}">
             <button type="submit" class="wk-x" title="Remove" aria-label="Remove {{ d.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px;">×</button>
           </form>
         </div>
-        {% endfor %}{% endfor %}
+        {% endfor %}
+        </div>
+        {% endfor %}
         {% if not day.rows %}<div style="font-size: 14px; opacity: .5; padding: 3px 0;">Nothing planned</div>{% endif %}
       </div>
       <button type="button" class="wk-add" data-date="{{ day.iso }}" data-filled='{{ day.filled|tojson }}' data-when="{{ day.label }} {{ day.text }}"
