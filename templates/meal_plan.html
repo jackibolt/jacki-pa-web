@@ -116,157 +116,108 @@
 
     <!-- MEALS PANEL -->
     <div class="panel active" id="panel-meals">
-        <!-- MEALS LIST -->
-        <div class="meals-list" id="mealsList">
+        {% macro dinner(meal) %}
+        <div class="dinner {% if meal.is_checked %}cooked{% endif %}" draggable="true" data-id="{{ meal.id }}" data-mpm="{{ meal.meal_plan_meal_id }}">
+            <button type="button" class="dinner-check" onclick="toggleCooked(event)" aria-label="Mark {{ meal.name }} cooked">
+                <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.5" class="ring"/><path d="M5.5 10.5l3 3 6-6.5" class="tick"/></svg>
+            </button>
+            <div class="dinner-body">
+                <span class="dinner-name">{{ meal.name }}</span>
+                {% if meal.side_dish %}<span class="dinner-side">+ {{ meal.side_dish.name }}</span>{% endif %}
+            </div>
+            <a class="dinner-open" href="{{ url_for('routes.meal_detail', meal_id=meal.id) }}" aria-label="Open {{ meal.name }}">↗</a>
+            <button type="button" class="dinner-star" onclick="toggleStar(event, {{ meal.id }}, {{ 'true' if meal.is_favorite else 'false' }})" aria-label="Favorite {{ meal.name }}">
+                {% if meal.is_favorite %}<svg width="16" height="16" viewBox="0 0 24 24" fill="#c8455a" stroke="#c8455a" stroke-width="1.8" stroke-linejoin="round"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>{% else %}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa8a0" stroke-width="1.8" stroke-linejoin="round"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>{% endif %}
+            </button>
+        </div>
+        {% endmacro %}
+        <div class="wk" id="mealsList">
             {% if meal_plan.meals %}
-                <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px;">
-                    <div style="font-size: 14px; color: #4a6556;">Drag a dinner onto a day.</div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-                        <form action="{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}" method="POST"
-                              style="display: flex; gap: 6px; align-items: center; margin: 0;">
-                            <label for="plan-start" style="font-size: 13px; color: #4a6556;">Fill days from</label>
-                            <input id="plan-start" type="date" name="start_date" required value="{{ today }}"
-                                   style="padding: 6px 10px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 13px;">
-                            <button type="submit" class="btn-success-dismiss">Fill</button>
-                        </form>
-                        <a class="btn-success-dismiss" href="?week={{ prev_week }}" style="text-decoration: none;">← Week</a>
-                        <a class="btn-success-dismiss" href="?week={{ next_week }}" style="text-decoration: none;">Week →</a>
-                    </div>
+            <div class="wk-bar">
+                <form action="{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}" method="POST" class="wk-fill">
+                    <label for="plan-start">Fill days from</label>
+                    <input id="plan-start" type="date" name="start_date" required value="{{ today }}">
+                    <button type="submit">Fill</button>
+                </form>
+                <div class="wk-nav">
+                    <a href="?week={{ prev_week }}" aria-label="Previous week">←</a>
+                    <span>{{ week_days[0].date_text }} – {{ week_days[6].date_text }}</span>
+                    <a href="?week={{ next_week }}" aria-label="Next week">→</a>
                 </div>
+            </div>
 
-                {% for day in week_days %}
-                <div class="day-group" data-date="{{ day.iso }}">
-                    <div class="day-head"><strong>{{ day.label }}</strong> · {{ day.date_text }}</div>
-                    <div class="day-rows">
-                    {% for meal in meal_plan.meals if meal.planned_date == day.iso %}
-                <div class="meal-row {% if meal.is_checked %}cooked{% endif %}" 
-                     data-id="{{ meal.id }}" 
-                     draggable="true"
-                     data-mpm="{{ meal.meal_plan_meal_id }}">
-                    
-                    <div class="meal-row-inner">
-                        <!-- DRAG HANDLE -->
-                        <div class="drag-handle">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                        
-                        <!-- CHECKBOX -->
-                        <div class="meal-check" onclick="toggleCooked(event)">✓</div>
-                        
-                        <!-- MEAL INFO -->
-                        <div class="meal-info">
-                            <div class="meal-name">
-                                <a href="{{ url_for('routes.meal_detail', meal_id=meal.id) }}">
-                                    {% set parts = meal.name.rsplit(' ', 1) %}
-                                    {% if parts|length > 1 %}
-                                        <span class="multi-word">{{ parts[0] }} <em>{{ parts[1] }}</em></span>
-                                    {% else %}
-                                        <span class="single-word">{{ meal.name }}</span>
-                                    {% endif %}
-                                </a>
-                            </div>
-                            <form action="{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}" method="POST" style="margin: 4px 0 0;">
-                                <input type="hidden" name="meal_plan_meal_id" value="{{ meal.meal_plan_meal_id }}">
-                                <input type="date" name="date" value="{{ meal.planned_date or '' }}" aria-label="Day for {{ meal.name }}"
-                                       onchange="this.form.submit()" onclick="event.stopPropagation()"
-                                       style="padding: 2px 6px; border: 1px solid #c3d6c9; border-radius: 8px; font-size: 12px; color: #4a6556;">
-                            </form>
-                            {% if meal.side_dish %}
-                            <div class="meal-meta">
-                                <span class="side-badge">
-                                    <span class="side-badge-icon">+</span>
-                                    {{ meal.side_dish.name }}
-                                </span>
-                            </div>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- FAVORITE STAR -->
-                        <div class="meal-fav" onclick="toggleStar(this, {{ meal.id }}, {{ 'true' if meal.is_favorite else 'false' }})">
-                            {% if meal.is_favorite %}
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
-                            {% else %}
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
-                            {% endif %}
-                        </div>
-                    </div>
+            <div class="day-group wk-tray" data-date="">
+                <div class="wk-tray-label"><strong>Not planned</strong><span id="wkHint">drag onto a day</span></div>
+                <div class="day-rows">
+                    {% for meal in tray_meals %}{{ dinner(meal) }}{% endfor %}
                 </div>
-                    {% endfor %}
+                <button type="button" class="wk-place">Back to not planned</button>
+            </div>
+
+            <div class="wk-cols">
+                {% for day in week_days %}
+                <div class="day-group wk-day {% if day.iso == today %}is-today{% endif %}" data-date="{{ day.iso }}">
+                    <div class="wk-dayhead"><b>{{ day.label }}</b><span>{{ day.date_text }}{% if day.iso == today %} · tonight{% endif %}</span></div>
+                    <div class="day-rows">
+                        {% for meal in meal_plan.meals if meal.planned_date == day.iso %}{{ dinner(meal) }}{% endfor %}
                     </div>
+                    <button type="button" class="wk-place">Put it here</button>
                 </div>
                 {% endfor %}
+            </div>
 
-                <div class="day-group" data-date="">
-                    <div class="day-head"><strong>No day yet</strong> · or on another week</div>
-                    <div class="day-rows">
-                    {% for meal in tray_meals %}
-                <div class="meal-row {% if meal.is_checked %}cooked{% endif %}" 
-                     data-id="{{ meal.id }}" 
-                     draggable="true"
-                     data-mpm="{{ meal.meal_plan_meal_id }}">
-                    
-                    <div class="meal-row-inner">
-                        <!-- DRAG HANDLE -->
-                        <div class="drag-handle">
-                            <span></span>
-                            <span></span>
-                            <span></span>
-                        </div>
-                        
-                        <!-- CHECKBOX -->
-                        <div class="meal-check" onclick="toggleCooked(event)">✓</div>
-                        
-                        <!-- MEAL INFO -->
-                        <div class="meal-info">
-                            <div class="meal-name">
-                                <a href="{{ url_for('routes.meal_detail', meal_id=meal.id) }}">
-                                    {% set parts = meal.name.rsplit(' ', 1) %}
-                                    {% if parts|length > 1 %}
-                                        <span class="multi-word">{{ parts[0] }} <em>{{ parts[1] }}</em></span>
-                                    {% else %}
-                                        <span class="single-word">{{ meal.name }}</span>
-                                    {% endif %}
-                                </a>
-                            </div>
-                            <form action="{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}" method="POST" style="margin: 4px 0 0;">
-                                <input type="hidden" name="meal_plan_meal_id" value="{{ meal.meal_plan_meal_id }}">
-                                <input type="date" name="date" value="{{ meal.planned_date or '' }}" aria-label="Day for {{ meal.name }}"
-                                       onchange="this.form.submit()" onclick="event.stopPropagation()"
-                                       style="padding: 2px 6px; border: 1px solid #c3d6c9; border-radius: 8px; font-size: 12px; color: #4a6556;">
-                            </form>
-                            {% if meal.side_dish %}
-                            <div class="meal-meta">
-                                <span class="side-badge">
-                                    <span class="side-badge-icon">+</span>
-                                    {{ meal.side_dish.name }}
-                                </span>
-                            </div>
-                            {% endif %}
-                        </div>
-                        
-                        <!-- FAVORITE STAR -->
-                        <div class="meal-fav" onclick="toggleStar(this, {{ meal.id }}, {{ 'true' if meal.is_favorite else 'false' }})">
-                            {% if meal.is_favorite %}
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="#c8455a" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
-                            {% else %}
-                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5" style="display: inline-block; vertical-align: middle;"><polygon points="12,2 15,10 23,10 17,15 19,23 12,18 5,23 7,15 1,10 9,10"/></svg>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-                    {% endfor %}
-                    </div>
-                </div>
-                <style>
-                    .day-group { margin-bottom: 10px; padding: 8px 10px; border: 1px solid #d5e4da; border-radius: 12px; }
-                    .day-group[data-date=""] { border: 2px dashed #c3d6c9; }
-                    .day-head { font-size: 13px; color: #4a6556; margin-bottom: 4px; }
-                    .day-rows { min-height: 34px; }
-                    .day-rows:empty::before { content: 'Drop a dinner here'; font-size: 13px; color: #9fb3a8; line-height: 34px; }
-                    .day-group.over { background: #f2f9f4; outline: 2px solid #3d7a57; }
-                </style>
+            <style>
+                .wk { color: #1a3a2a; }
+                .wk-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+                .wk-fill { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: #4a6556; }
+                .wk-fill input { min-height: 40px; box-sizing: border-box; padding: 0 10px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 14px; background: #fff; }
+                .wk-fill button, .wk-nav a { min-height: 40px; min-width: 40px; box-sizing: border-box; padding: 0 14px; border: 1px solid #c3d6c9; border-radius: 10px; background: #fff; font-size: 14px; font-weight: 500; color: #1a3a2a; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+                .wk-nav { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; }
+                .wk-tray { display: flex; align-items: center; gap: 12px; border: 2px dashed #c3d6c9; border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+                .wk-tray-label { width: 92px; flex: none; font-size: 13px; color: #4a6556; }
+                .wk-tray-label span { display: block; }
+                .wk-tray .day-rows { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; align-items: center; }
+                .wk-tray .dinner { width: 230px; }
+                .wk-cols { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+                .wk-day { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+                .wk-dayhead { background: #fff; border: 1px solid #d5e4da; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; font-size: 12px; color: #4a6556; }
+                .wk-dayhead b { font-size: 14px; color: #1a3a2a; }
+                .wk-day.is-today .wk-dayhead { background: #1a3a2a; color: #b9d3c3; border-color: #1a3a2a; }
+                .wk-day.is-today .wk-dayhead b { color: #f5f0e8; }
+                .wk-day .day-rows { flex: 1; min-height: 150px; border: 1px dashed #c3d6c9; border-radius: 10px; padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+                .wk-day .day-rows:empty::before { content: 'Drop a dinner'; font-size: 12px; color: #9fb3a8; padding: 8px 2px; }
+                .day-group.over, .day-group.over .day-rows { background: #f2f9f4; outline: 2px solid #3d7a57; }
+                .wk-place { display: none; }
+                .dinner { display: flex; align-items: flex-start; gap: 6px; box-sizing: border-box; padding: 7px 8px; background: #fff; border: 1px solid #d5e4da; border-radius: 10px; cursor: grab; min-width: 0; }
+                .dinner.dragging { opacity: .5; }
+                .dinner.selected { outline: 2px solid #c8455a; outline-offset: 1px; }
+                .dinner-check, .dinner-star { all: unset; cursor: pointer; flex: none; display: inline-flex; align-items: center; justify-content: center; }
+                .dinner-check .ring { fill: #fff; stroke: #9fb8a8; stroke-width: 1.5; }
+                .dinner-check .tick { fill: none; stroke: transparent; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+                .dinner.cooked .dinner-check .ring { fill: #3d7a57; stroke: #3d7a57; }
+                .dinner.cooked .dinner-check .tick { stroke: #fff; }
+                .dinner.cooked .dinner-name { text-decoration: line-through; opacity: .6; }
+                .dinner-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+                .dinner-name { font-family: 'Fraunces', Georgia, serif; font-size: 13px; line-height: 1.25; color: #1a3a2a; overflow-wrap: anywhere; }
+                .dinner-side { font-size: 11px; color: #4a6556; margin-top: 2px; }
+                .dinner-open { flex: none; font-size: 13px; color: #7a8f82; text-decoration: none; line-height: 1.3; }
+                @media (max-width: 760px) {
+                    .wk-tray { flex-direction: column; align-items: stretch; }
+                    .wk-tray .day-rows { flex-wrap: nowrap; overflow-x: auto; }
+                    .wk-tray .dinner { width: 200px; flex: none; }
+                    .wk-cols { display: flex; flex-direction: column; gap: 6px; }
+                    .wk-day { display: grid; grid-template-columns: 54px 1fr; align-items: center; gap: 8px; background: #fff; border: 1px solid #d5e4da; border-radius: 12px; padding: 8px 10px; }
+                    .wk-dayhead { background: none; border: 0; padding: 0; }
+                    .wk-day.is-today { border-color: #3d7a57; }
+                    .wk-day.is-today .wk-dayhead { background: none; color: #4a6556; }
+                    .wk-day.is-today .wk-dayhead b { color: #1a3a2a; }
+                    .wk-day .day-rows { min-height: 0; border: 0; padding: 0; }
+                    .wk-day .day-rows:empty::before { content: ''; }
+                    .wk-place { display: none; grid-column: 2; min-height: 44px; border: 1.5px dashed #c8455a; border-radius: 10px; background: #fff7f8; color: #b03a4e; font-size: 13px; font-weight: 700; cursor: pointer; }
+                    .wk.has-selection .wk-place { display: block; }
+                    .dinner { min-height: 44px; align-items: center; }
+                }
+            </style>
             {% else %}
                 <p>No meals found in this plan.</p>
             {% endif %}
@@ -305,17 +256,6 @@
         </div>
     </div>
 
-</div>
-
-<!-- BOTTOM NAV (Mobile) -->
-<div class="bottom-nav">
-    <div class="bn-inner">
-        <div class="bn-item"><div class="bn-icon">🏠</div><div class="bn-label">Home</div></div>
-        <div class="bn-item"><div class="bn-icon">🍽️</div><div class="bn-label">Meals</div></div>
-        <div class="bn-center"><div class="bn-fab">🎲</div></div>
-        <div class="bn-item active"><div class="bn-icon">📋</div><div class="bn-label">Plans</div></div>
-        <div class="bn-item"><div class="bn-icon">👤</div><div class="bn-label">Profile</div></div>
-    </div>
 </div>
 
 <script>
@@ -671,7 +611,7 @@
     // ════════════════════════════════════════════════════════════════
 
     function getCooked() {
-        return document.querySelectorAll('.meal-row.cooked').length;
+        return document.querySelectorAll('.dinner.cooked').length;
     }
 
     function updateProgress() {
@@ -687,14 +627,8 @@
 
     function toggleCooked(e) {
         e.stopPropagation();
-        const row = e.currentTarget.closest('.meal-row');
+        const row = e.currentTarget.closest('.dinner');
         row.classList.toggle('cooked');
-        const check = row.querySelector('.meal-check');
-        check.style.animation = 'none';
-        check.offsetHeight;
-        if (row.classList.contains('cooked')) {
-            check.style.animation = 'checkPop 0.4s ease';
-        }
         
         // Update via API
         const mealId = row.dataset.id;
@@ -721,11 +655,31 @@
         updateProgress();
     }
 
-    // ── DRAG A DINNER ONTO A DAY ──
+    // ── MOVE A DINNER TO A DAY (drag on desktop, tap then "Put it here" on phones) ──
+    function moveDinner(row, group) {
+        const from = row.parentElement;
+        group.querySelector('.day-rows').appendChild(row);
+        fetch("{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}", {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ meal_plan_meal_id: row.dataset.mpm, date: group.dataset.date || null })
+        }).then(r => { if (!r.ok) throw new Error(); })
+          .catch(() => { from.appendChild(row); alert('Could not save that day. Try again.'); });
+    }
+
     function initDragDrop() {
-        const rows = document.querySelectorAll('.meal-row[draggable="true"]');
-        rows.forEach(row => {
-            row.querySelectorAll('a, img').forEach(el => el.setAttribute('draggable', 'false'));  // grab the whole row, not the link
+        const wk = document.getElementById('mealsList');
+        if (!wk) return;
+        const hint = document.getElementById('wkHint');
+        let selected = null;
+        const select = row => {
+            if (selected) selected.classList.remove('selected');
+            selected = (row && row !== selected) ? row : null;
+            if (selected) selected.classList.add('selected');
+            wk.classList.toggle('has-selection', !!selected);
+            if (hint) hint.textContent = selected ? 'tap a day' : 'drag onto a day';
+        };
+        document.querySelectorAll('.dinner').forEach(row => {
+            row.querySelectorAll('a, img').forEach(el => el.setAttribute('draggable', 'false'));
             row.addEventListener('dragstart', e => {
                 dragSrc = row;
                 e.dataTransfer.effectAllowed = 'move';
@@ -737,6 +691,10 @@
                 document.querySelectorAll('.day-group.over').forEach(g => g.classList.remove('over'));
                 dragSrc = null;
             });
+            row.addEventListener('click', e => {
+                if (e.target.closest('.dinner-check, .dinner-star, .dinner-open')) return;
+                select(row);
+            });
         });
         document.querySelectorAll('.day-group').forEach(group => {
             group.addEventListener('dragover', e => { if (dragSrc) { e.preventDefault(); group.classList.add('over'); } });
@@ -745,24 +703,22 @@
                 e.preventDefault();
                 group.classList.remove('over');
                 if (!dragSrc) return;
-                const row = dragSrc, from = row.parentElement;
-                dragSrc = null;
-                const dateInput = row.querySelector('input[type="date"]');
-                if (dateInput) dateInput.value = group.dataset.date;
-                group.querySelector('.day-rows').appendChild(row);
-                fetch("{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}", {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ meal_plan_meal_id: row.dataset.mpm, date: group.dataset.date || null })
-                }).then(r => { if (!r.ok) throw new Error(); })
-                  .catch(() => { from.appendChild(row); alert('Could not save that day. Try again.'); });
+                const row = dragSrc; dragSrc = null;
+                moveDinner(row, group);
+            });
+            const place = group.querySelector('.wk-place');
+            if (place) place.addEventListener('click', () => {
+                if (!selected) return;
+                const row = selected; select(null);
+                moveDinner(row, group);
             });
         });
     }
 
     function toggleStar(e, mealId, currentlyFavorite) {
         e.stopPropagation();
-        const row = e.currentTarget.closest('.meal-row');
-        const starEl = row.querySelector('.meal-fav');
+        const row = e.currentTarget.closest('.dinner');
+        const starEl = row.querySelector('.dinner-star');
         const newFavoriteStatus = !JSON.parse(currentlyFavorite);
 
         fetch(`/meals/${mealId}/favorite`, {
