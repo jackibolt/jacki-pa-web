@@ -35,7 +35,7 @@
       <div style="display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid #eef4f0;">
         <div style="width: 78px; flex: none; font-size: 13px; color: #4a6556;">{{ item.when }}</div>
         <div style="flex: 1; min-width: 0; font-size: 15px;">
-          {% if item.type == 'meal' %}<span style="font-size: 12px; background: #e6f2ea; color: #1a3a2a; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.meal_type or 'Meal' }}</span>{% if item.label %}<span style="font-size: 12px; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.label }}</span>{% endif %}{% endif %}{% if item.type == 'meal' and item.meal_id %}<a href="{{ url_for('routes.meal_detail', meal_id=item.meal_id) }}" style="color: inherit;">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}
+          {% if item.type == 'meal' %}<span style="font-size: 12px; background: #e6f2ea; color: #1a3a2a; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.meal_type or 'Meal' }}</span>{% if item.label %}<span style="font-size: 12px; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.label }}</span>{% endif %}{% endif %}{% if item.type == 'meal' and item.meal_id %}<a href="{{ url_for('routes.meal_detail', meal_id=item.meal_id) }}" style="color: inherit;">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}{% if item.location %}<span style="font-size: 13px; color: #7a8f82; margin-left: 6px;">· {{ item.location }}</span>{% endif %}
         </div>
       </div>
       {% else %}
