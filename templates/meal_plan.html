@@ -111,6 +111,7 @@
     <!-- SUBTAB BAR FOR SWITCHING BETWEEN MEALS AND GROCERIES -->
     <div class="subtab-bar">
         <button class="subtab active" onclick="switchTab('meals', this)">🍽️ Meals <span class="subtab-count">{{ meal_plan.meals | length }}</span></button>
+        <button class="subtab" id="weekTabBtn" onclick="switchTab('week', this)">🗓️ Week</button>
         <button class="subtab" onclick="switchTab('groceries', this)">🛒 Grocery Items <span class="subtab-count" id="groceryCount">0</span></button>
     </div>
 
@@ -193,6 +194,62 @@
     </div>
 
     <!-- GROCERIES PANEL -->
+    <!-- WEEK PANEL: drag dinners onto days -->
+    <div class="panel" id="panel-week">
+        <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px;">
+            <div style="font-size: 14px; color: #4a6556;">Drag a dinner onto a day. Drop it back in the tray to clear its day.</div>
+            <div style="display: flex; gap: 8px;">
+                <a class="btn-success-dismiss" href="?week={{ prev_week }}&tab=week" style="text-decoration: none;">← Week</a>
+                <a class="btn-success-dismiss" href="?week={{ next_week }}&tab=week" style="text-decoration: none;">Week →</a>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px;">
+            {% for day in week_days %}
+            <div class="week-slot" data-date="{{ day.iso }}" style="flex: 1 0 130px; min-height: 120px; border: 1px solid #d5e4da; border-radius: 12px; padding: 10px; background: #fff;">
+                <div style="font-size: 12px; color: #4a6556; margin-bottom: 8px;"><strong>{{ day.label }}</strong> · {{ day.date_text }}</div>
+                {% for meal in meal_plan.meals if meal.planned_date == day.iso %}
+                <div class="week-chip" draggable="true" data-mpm="{{ meal.meal_plan_meal_id }}">{{ meal.name }}</div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="week-slot" data-date="" style="margin-top: 14px; min-height: 60px; border: 2px dashed #c3d6c9; border-radius: 12px; padding: 10px;">
+            <div style="font-size: 12px; color: #4a6556; margin-bottom: 8px;"><strong>Tray</strong> · not on this week</div>
+            {% for meal in tray_meals %}
+            <div class="week-chip" draggable="true" data-mpm="{{ meal.meal_plan_meal_id }}">{{ meal.name }}{% if meal.planned_date %} <span style="opacity: .6; font-size: 11px;">({{ meal.planned_date }})</span>{% endif %}</div>
+            {% endfor %}
+        </div>
+        <style>
+            .week-chip { background: #e6f2ea; color: #1a3a2a; border-radius: 8px; padding: 6px 10px; margin-bottom: 6px; font-size: 14px; cursor: grab; display: inline-block; max-width: 100%; }
+            .week-slot.over { background: #f2f9f4; outline: 2px solid #3d7a57; }
+        </style>
+        <script>
+        (function () {
+            let dragged = null;
+            document.addEventListener('dragstart', e => { if (e.target.classList && e.target.classList.contains('week-chip')) { dragged = e.target; e.dataTransfer.effectAllowed = 'move'; } });
+            document.querySelectorAll('.week-slot').forEach(slot => {
+                slot.addEventListener('dragover', e => { if (dragged) { e.preventDefault(); slot.classList.add('over'); } });
+                slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+                slot.addEventListener('drop', e => {
+                    e.preventDefault(); slot.classList.remove('over');
+                    if (!dragged) return;
+                    const chip = dragged, from = chip.parentElement; dragged = null;
+                    const chipText = chip.querySelector('span'); if (chipText && !slot.dataset.date) chipText.remove();
+                    slot.appendChild(chip);
+                    fetch("{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}", {
+                        method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({meal_plan_meal_id: chip.dataset.mpm, date: slot.dataset.date || null})
+                    }).then(r => { if (!r.ok) throw new Error(); })
+                      .catch(() => { from.appendChild(chip); alert('Could not save that day. Try again.'); });
+                });
+            });
+            if (new URLSearchParams(location.search).get('tab') === 'week') {
+                switchTab('week', document.getElementById('weekTabBtn'));
+            }
+        })();
+        </script>
+    </div>
+
     <div class="panel" id="panel-groceries">
         <!-- Hidden element for grocery count tracking -->
         <div id="totalGroceries" class="hidden">0</div>

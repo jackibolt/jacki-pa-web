@@ -954,11 +954,25 @@ def view_meal_plan(meal_plan_id):
             enriched_meals.append(m)
 
     meal_plan['meals'] = enriched_meals
-    # print(f"Meal Plan: {meal_plan}")
+
+    # Week board: seven days starting at ?week=, else the earliest planned day, else today
+    from datetime import timedelta
+    planned = sorted(m['planned_date'] for m in enriched_meals if m.get('planned_date'))
+    try:
+        week_start = datetime.strptime(request.args.get('week', ''), '%Y-%m-%d').date()
+    except ValueError:
+        week_start = datetime.strptime(planned[0], '%Y-%m-%d').date() if planned else _today()
+    week_days = [{'iso': (week_start + timedelta(days=n)).isoformat(),
+                  'label': (week_start + timedelta(days=n)).strftime('%a'),
+                  'date_text': (week_start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
+    week_iso = {d['iso'] for d in week_days}
+    tray_meals = [m for m in enriched_meals if m.get('planned_date') not in week_iso]
 
     return render_template('meal_plan.html', meal_plan=meal_plan, meals=all_meals, back_href=url_for('routes.meal_plans'),
                             api_base_url=API_BASE_URL, access_token=g.access_token, random_subhead=random_subheader(),
-                            today=_today().isoformat())
+                            today=_today().isoformat(), week_days=week_days, tray_meals=tray_meals,
+                            prev_week=(week_start - timedelta(days=7)).isoformat(),
+                            next_week=(week_start + timedelta(days=7)).isoformat())
 
 
 ## ROUTE FOR GIVING A MEAL PLAN'S DINNERS DAYS
@@ -966,6 +980,11 @@ def view_meal_plan(meal_plan_id):
 @login_required
 def set_meal_plan_dates(meal_plan_id):
     headers = {'Authorization': f"Bearer {g.access_token}"}
+    if request.is_json:  # drag-and-drop on the Week board
+        body = request.get_json(silent=True) or {}
+        payload = {'dates': {str(body.get('meal_plan_meal_id', '')): body.get('date') or None}}
+        response = requests.patch(f"{API_BASE_URL}/meal_plan/{meal_plan_id}/dates", json=payload, headers=headers)
+        return jsonify({'success': response.status_code == 200}), response.status_code
     if request.form.get('start_date'):
         payload = {'start_date': request.form['start_date']}
     else:
