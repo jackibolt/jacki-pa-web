@@ -171,20 +171,21 @@
                   <div class="bn-icon">🏠</div>
                   <div class="bn-label">Home</div>
                 </div>
-                <div class="bn-item {% if request.endpoint in ['routes.meal_plans', 'routes.new_meal_plan'] %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.meal_plans') }}'">
-                  <div class="bn-icon">📋</div>
-                  <div class="bn-label">Plans</div>
+                <div class="bn-item {% if request.endpoint == 'routes.todos' %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.todos') }}'">
+                  <div class="bn-icon">✅</div>
+                  <div class="bn-label">To-dos</div>
                 </div>
-                <div class="bn-center">
-                  <div class="bn-fab" onclick="window.location.href='{{ url_for('routes.new_meal_plan') }}'">🎲</div>
+                <div class="bn-item {% if request.endpoint == 'routes.reminders' %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.reminders') }}'">
+                  <div class="bn-icon">🔔</div>
+                  <div class="bn-label">Reminders</div>
+                </div>
+                <div class="bn-item {% if request.endpoint == 'routes.schedule' %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.schedule') }}'">
+                  <div class="bn-icon">🗓️</div>
+                  <div class="bn-label">Schedule</div>
                 </div>
                 <div class="bn-item {% if request.endpoint == 'routes.meals' %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.meals') }}'">
                   <div class="bn-icon">🍽️</div>
                   <div class="bn-label">Meals</div>
-                </div>
-                <div class="bn-item {% if request.endpoint in ['routes.grocery_list', 'routes.grocery_list_single_view', 'routes.grocery_list_view_combined'] %}active{% endif %}" onclick="window.location.href='{{ url_for('routes.grocery_list') }}'">
-                  <div class="bn-icon">🛒</div>
-                  <div class="bn-label">Grocery</div>
                 </div>
               </div>
             </div> 

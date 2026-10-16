@@ -329,7 +329,7 @@ def home():
         if i['type'] == 'todo' or i['type'] == 'reminder':
             agenda.append(i)
         (timed if i.get('start_time') else all_day).append(i)
-    todos_today = [i for i in agenda if i['type'] == 'todo']
+    events_today = [i for i in schedule_items if i['type'] == 'event']
     hour = datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).hour
     greeting = 'Good morning' if hour < 12 else 'Good afternoon' if hour < 17 else 'Good evening'
 
@@ -344,7 +344,7 @@ def home():
         help_modal='home', ingredients_count=ingredients_count,
         greeting=greeting, today_text=today.strftime('%A, %B %-d'),
         schedule_items=schedule_items, agenda=agenda, timed=timed, all_day=all_day,
-        todos_today=todos_today, today=today.isoformat())
+        events_today=events_today, today=today.isoformat())
 
 
 # --------------- #
