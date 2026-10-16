@@ -2795,9 +2795,15 @@ def meals_week_save_template():
     if not name:
         clear_and_flash("Give the week a name.", "error")
         return redirect(_week_url(start))
+    chosen = [x for x in request.form.getlist('slots') if x in WEEK_SLOTS]
+    if not chosen:
+        clear_and_flash("Pick at least one category to save.", "error")
+        return redirect(_week_url(start))
+    payload = {'name': name, 'start': start}
+    if len(chosen) < len(WEEK_SLOTS):
+        payload['slots'] = chosen
     try:
-        res = requests.post(f"{API_BASE_URL}/week_templates", headers=_api_headers(), timeout=15,
-                            json={'name': name, 'start': start})
+        res = requests.post(f"{API_BASE_URL}/week_templates", headers=_api_headers(), timeout=15, json=payload)
         if res.status_code in (200, 201):
             clear_and_flash(f"Saved this week as \"{name}\".", "success")
         else:
