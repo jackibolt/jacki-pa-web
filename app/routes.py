@@ -2590,7 +2590,9 @@ def _whoop_summary(token, today):
                            params={'start': _week_start(today).isoformat(), 'end': today.isoformat()},
                            headers={'Authorization': f"Bearer {token}"})
         data = res.json() if res.status_code == 200 else {}
-    except requests.RequestException:
+    except (requests.RequestException, ValueError):
+        return {}
+    if not isinstance(data, dict):
         return {}
     for w in data.get('workouts', []):
         w['day'] = datetime.strptime(w['date'], '%Y-%m-%d').strftime('%a')
@@ -2663,3 +2665,106 @@ def whoop_disconnect():
     ok = response.status_code == 200
     clear_and_flash("WHOOP disconnected." if ok else "Could not disconnect.", "success" if ok else "error")
     return redirect(url_for('routes.whoop_page'))
+
+
+
+# ----------------- #
+## MEALS WEEK VIEW ##
+
+# (meal type, who it's for, heading). Kids' and Jacki's lunch are both "Lunch", told apart by label.
+WEEK_SLOTS = [('Breakfast', None, 'Breakfast'), ('Lunch', 'Kids', "Kids' lunch"), ('Lunch', 'Jacki', "Jacki's lunch"),
+              ('Snack', None, 'Snack'), ('Dinner', None, 'Dinner')]
+WEEK_SLOT_VALUES = [f"{kind}|{label or ''}" for kind, label, _ in WEEK_SLOTS]
+
+
+def _week_dishes(todays):
+    """Group one day's planned dishes into the five slots, plus 'Lunch' / 'Other' for anything that doesn't fit."""
+    left = list(todays)
+    rows = []
+    for kind, label, title in WEEK_SLOTS:
+        if label:
+            mine = [i for i in left if i.get('meal_type') == kind and i.get('label') == label]
+        else:
+            mine = [i for i in left if i.get('meal_type') == kind]
+        for i in mine:
+            left.remove(i)
+        rows.append({'title': title, 'value': f"{kind}|{label or ''}", 'dishes': mine})
+    lunch = [i for i in left if i.get('meal_type') == 'Lunch']
+    other = [i for i in left if i.get('meal_type') != 'Lunch']
+    if lunch:
+        rows.insert(3, {'title': 'Lunch', 'value': None, 'dishes': lunch})
+    if other:
+        rows.append({'title': 'Other', 'value': None, 'dishes': other})
+    return rows
+
+
+def _week_url(start=None):
+    return url_for('routes.meals_week', start=start) if start else url_for('routes.meals_week')
+
+
+@routes.route('/meals/week')
+@login_required
+def meals_week():
+    from datetime import timedelta
+    today = _today()
+    try:
+        start = datetime.strptime(request.args.get('start', ''), '%Y-%m-%d').date()
+    except ValueError:
+        start = today
+    start = _week_start(start)
+    end = start + timedelta(days=6)
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    meal_items, options = [], []
+    try:
+        res = requests.get(f"{API_BASE_URL}/schedule", params={'start': start.isoformat(), 'end': end.isoformat()},
+                           headers=headers, timeout=15)
+        if res.status_code == 200:
+            meal_items = [i for i in res.json().get('items', []) if i['type'] == 'meal']
+        opt = requests.get(f"{API_BASE_URL}/meals/options", headers=headers, timeout=15)
+        if opt.status_code == 200:
+            options = opt.json().get('meals', [])
+    except requests.RequestException:
+        clear_and_flash("Could not load your meals right now.", "error")
+    days = []
+    for n in range(7):
+        day = start + timedelta(days=n)
+        todays = [i for i in meal_items if i['date'] == day.isoformat()]
+        days.append({'iso': day.isoformat(), 'label': day.strftime('%a'), 'text': day.strftime('%b %-d'),
+                     'is_today': day == today, 'rows': _week_dishes(todays)})
+    return render_template('meals_week.html', days=days, options=options, slots=WEEK_SLOTS,
+                           start=start.isoformat(), prev_start=(start - timedelta(days=7)).isoformat(),
+                           next_start=(start + timedelta(days=7)).isoformat(), is_this_week=(start == _week_start(today)),
+                           range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
+                           random_subhead=random_subheader())
+
+
+@routes.route('/meals/week/add', methods=['POST'])
+@login_required
+def meals_week_add():
+    start = request.form.get('start')
+    slot, _, label = request.form.get('slot', '').partition('|')
+    if not request.form.get('meal_id'):
+        clear_and_flash("Pick a meal from the list.", "error")
+        return redirect(_week_url(start))
+    try:
+        res = requests.post(f"{API_BASE_URL}/meals/schedule", timeout=15, headers={'Authorization': f"Bearer {g.access_token}"},
+                            json={'date': request.form.get('date'), 'meal_id': request.form.get('meal_id'),
+                                  'slot': slot, 'label': label})
+        if res.status_code != 201:
+            clear_and_flash(res.json().get('error', 'Could not add that meal.'), "error")
+    except requests.RequestException:
+        clear_and_flash("Could not add that meal right now.", "error")
+    return redirect(_week_url(start))
+
+
+@routes.route('/meals/week/remove/<int:row_id>', methods=['POST'])
+@login_required
+def meals_week_remove(row_id):
+    try:
+        res = requests.delete(f"{API_BASE_URL}/meals/schedule/{row_id}", timeout=15,
+                              headers={'Authorization': f"Bearer {g.access_token}"})
+        if res.status_code != 200:
+            clear_and_flash("Could not remove that meal.", "error")
+    except requests.RequestException:
+        clear_and_flash("Could not remove that meal right now.", "error")
+    return redirect(_week_url(request.form.get('start')))
