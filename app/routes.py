@@ -2730,10 +2730,9 @@ def meals_week():
         day = start + timedelta(days=n)
         todays = [i for i in meal_items if i['date'] == day.isoformat()]
         rows = _week_dishes(todays)
-        filled = {r['value'] for r in rows if r['dishes']}
-        default_slot = 'Dinner|' if 'Dinner|' not in filled else next((v for v in WEEK_SLOT_VALUES if v not in filled), 'Dinner|')
+        filled = {r['value']: [d['title'] for d in r['dishes']] for r in rows if r['value'] and r['dishes']}
         days.append({'iso': day.isoformat(), 'label': day.strftime('%a'), 'text': day.strftime('%b %-d'),
-                     'is_today': day == today, 'rows': [r for r in rows if r['dishes']], 'default_slot': default_slot})
+                     'is_today': day == today, 'rows': [r for r in rows if r['dishes']], 'filled': filled})
     return render_template('meals_week.html', days=days, options=options, slots=WEEK_SLOTS,
                            start=start.isoformat(), prev_start=(start - timedelta(days=7)).isoformat(),
                            next_start=(start + timedelta(days=7)).isoformat(), is_this_week=(start == _week_start(today)),
