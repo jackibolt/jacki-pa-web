@@ -236,7 +236,7 @@
           <div style="font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: {{ '#f3a8b6' if dark else '#b03a4e' }};">{{ sec.type }}</div>
           {% for d in sec.dishes %}
           <div style="margin-top: 4px; font-size: 15px; font-weight: 500; line-height: 1.3;">
-            {% if d.label %}{% if dark %}<span style="display: inline-block; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 8px; margin-right: 4px; vertical-align: 1px; background: rgba(255,255,255,.18); color: #f5f0e8;">{{ d.label }}</span>{% else %}<span style="font-size: 13px; font-weight: 700; margin-right: 4px; color: #2c5a40;">{{ d.label }}:</span>{% endif %}{% endif %}{% if d.meal_id %}<a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="color: inherit; text-decoration: none; border-bottom: 1px dotted currentColor;">{{ d.title }}</a>{% else %}{{ d.title }}{% endif %}
+            {% if d.label %}{% if dark %}<span style="display: inline-block; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 1px 8px; margin-right: 4px; vertical-align: 1px; background: rgba(255,255,255,.18); color: #f5f0e8;">{{ d.label }}</span>{% else %}<span style="font-size: 13px; font-weight: 700; margin-right: 4px; color: #2c5a40;">{{ d.label }}:</span>{% endif %}{% endif %}{% if d.meal_id %}<a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="color: inherit; text-decoration: none;">{{ d.title }}</a>{% else %}{{ d.title }}{% endif %}
           </div>
           {% endfor %}
         </div>
