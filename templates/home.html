@@ -31,10 +31,9 @@
       <div style="display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid #eef4f0;">
         <div style="width: 78px; flex: none; font-size: 13px; color: #4a6556;">{{ item.when }}</div>
         <div style="flex: 1; min-width: 0; font-size: 15px;">
-          {{ item.title }}
-          {% if item.overdue %}<span style="font-size: 12px; color: #b03a4e; margin-left: 6px;">Overdue</span>{% endif %}
+          {% if item.type == 'meal' %}<span style="font-size: 12px; background: #e6f2ea; color: #1a3a2a; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">Dinner</span>{% endif %}{{ item.title }}
         </div>
-              </div>
+      </div>
       {% else %}
       <div style="font-size: 14px; color: #7a8f82; padding: 10px 0;">No events today.</div>
       {% endfor %}
@@ -83,6 +82,23 @@
         <h2 style="margin: 0 0 4px; font-size: 18px; color: #4a6556;">Weather</h2>
         <div style="font-size: 14px;">Coming later.</div>
       </section>
+  <!-- MEALS FOR THE WEEK -->
+  {% if has_planned_meals %}
+  <section style="margin-bottom: 28px;">
+    <h2 style="margin: 0 0 10px; font-size: 18px;">Meals for the Week</h2>
+    <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;">
+      {% for day in week_days %}
+      <div style="flex: 1 0 120px; border-radius: 12px; padding: 12px 14px; border: 1px solid #d5e4da;
+                  background: {{ '#1a3a2a' if day.is_today else '#fff' }}; color: {{ '#f5f0e8' if day.is_today else 'inherit' }};">
+        <div style="font-size: 12px; opacity: .75;">{{ day.label }} · {{ day.date_text }}</div>
+        {% for d in day.dinners %}<div style="font-size: 14px; margin-top: 6px;">{{ d }}</div>
+        {% else %}<div style="font-size: 13px; margin-top: 6px; opacity: .6;">Nothing planned yet</div>{% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
 </div>
 
 <div class="home-container" data-show-modal="{{ 'true' if show_home_modal else 'false' }}" style="display: none;"></div>
