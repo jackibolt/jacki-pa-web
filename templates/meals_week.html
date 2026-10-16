@@ -100,6 +100,12 @@
       <div style="font-size: 13px; color: #7a8f82; margin-bottom: 10px;">Name it to reuse it later, e.g. Week A. Using an existing name replaces that week.</div>
       <input type="hidden" name="start" value="{{ start }}">
       <input type="text" name="name" maxlength="60" list="wk-tpl-names" required placeholder="Week A" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
+      <div style="font-size: 13px; color: #5a7364; margin: 12px 0 4px;">Include</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 6px 16px;">
+        {% for kind in slots %}
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer;"><input type="checkbox" name="slots" value="{{ kind }}" checked style="width: auto; margin: 0;"> {{ kind }}</label>
+        {% endfor %}
+      </div>
       <datalist id="wk-tpl-names">{% for t in week_templates %}<option value="{{ t.name }}"></option>{% endfor %}</datalist>
       <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
         <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Cancel</button>
