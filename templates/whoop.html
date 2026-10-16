@@ -55,6 +55,19 @@
         </div>
       </div>
 
+      {% if info.zones %}
+      <div style="{{ card }} margin-bottom: 16px;">
+        <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px;">Time in heart-rate zones · this week</div>
+        {% for z in info.zones %}
+        <div style="display: flex; align-items: center; gap: 12px; padding: 4px 0; font-size: 14px;">
+          <div style="flex: none; width: 52px; color: #4a6556;">Zone {{ z.zone }}</div>
+          <div style="flex: 1; height: 10px; border-radius: 5px; background: #e8f0ea; overflow: hidden;"><div style="height: 100%; width: {{ z.pct }}%; border-radius: 5px; background: {{ ['#bcd9f5', '#8dbdee', '#4090e0', '#2a6bb8', '#1b4a85'][loop.index0] }};"></div></div>
+          <div style="flex: none; width: 64px; text-align: right; font-weight: 600;">{{ z.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
       {% if info.workouts %}
       {% for w in info.workouts|reverse %}
       <div style="{{ card }} margin-bottom: 12px;">
