@@ -119,6 +119,13 @@
         <!-- MEALS LIST -->
         <div class="meals-list" id="mealsList">
             {% if meal_plan.meals %}
+                <form action="{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}" method="POST"
+                      style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px;">
+                    <label for="plan-start" style="font-size: 14px; color: #4a6556;">Dinners start on</label>
+                    <input id="plan-start" type="date" name="start_date" required value="{{ today }}"
+                           style="padding: 8px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 14px;">
+                    <button type="submit" class="btn-success-dismiss">Set days</button>
+                </form>
                 <div class="section-label" id="remainingLabel" style="animation-delay: 0.06s">This week</div>
                 
                 {% for meal in meal_plan.meals %}
@@ -150,6 +157,12 @@
                                     {% endif %}
                                 </a>
                             </div>
+                            <form action="{{ url_for('routes.set_meal_plan_dates', meal_plan_id=meal_plan.meal_plan_id) }}" method="POST" style="margin: 4px 0 0;">
+                                <input type="hidden" name="meal_plan_meal_id" value="{{ meal.meal_plan_meal_id }}">
+                                <input type="date" name="date" value="{{ meal.planned_date or '' }}" aria-label="Day for {{ meal.name }}"
+                                       onchange="this.form.submit()" onclick="event.stopPropagation()"
+                                       style="padding: 2px 6px; border: 1px solid #c3d6c9; border-radius: 8px; font-size: 12px; color: #4a6556;">
+                            </form>
                             {% if meal.side_dish %}
                             <div class="meal-meta">
                                 <span class="side-badge">

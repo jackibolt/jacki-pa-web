@@ -311,17 +311,26 @@ def home():
 
     show_home_modal = session.pop('show_home_modal', False)
 
-    # Today's schedule (events, to-dos due/overdue, reminders due/overdue)
+    # Next 7 days of everything; today's slice drives the schedule and agenda
+    from datetime import timedelta
     today = _today()
-    schedule_items = []
+    week_items = []
     try:
         sched_res = requests.get(f"{API_BASE_URL}/schedule",
-                                 params={'start': today.isoformat(), 'end': today.isoformat()},
+                                 params={'start': today.isoformat(), 'end': (today + timedelta(days=6)).isoformat()},
                                  headers=headers, timeout=15)
         if sched_res.status_code == 200:
-            schedule_items = sched_res.json().get('items', [])
+            week_items = sched_res.json().get('items', [])
     except requests.RequestException as e:
-        print(f"Could not load today's schedule: {e}")
+        print(f"Could not load the schedule: {e}")
+    schedule_items = [i for i in week_items if i['date'] == today.isoformat()]
+    week_days = []
+    for n in range(7):
+        day = today + timedelta(days=n)
+        dinners = [i['title'] for i in week_items if i['type'] == 'meal' and i['date'] == day.isoformat()]
+        week_days.append({'label': 'Tonight' if n == 0 else day.strftime('%a'), 'date_text': day.strftime('%b %-d'),
+                          'is_today': n == 0, 'dinners': dinners})
+    has_planned_meals = any(d['dinners'] for d in week_days)
 
     timed, all_day, agenda = [], [], []
     for i in schedule_items:
@@ -329,7 +338,7 @@ def home():
         if i['type'] == 'todo' or i['type'] == 'reminder':
             agenda.append(i)
         (timed if i.get('start_time') else all_day).append(i)
-    events_today = [i for i in schedule_items if i['type'] == 'event']
+    events_today = [i for i in schedule_items if i['type'] in ('event', 'meal')]
     hour = datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).hour
     greeting = 'Good morning' if hour < 12 else 'Good afternoon' if hour < 17 else 'Good evening'
 
@@ -344,7 +353,8 @@ def home():
         help_modal='home', ingredients_count=ingredients_count,
         greeting=greeting, today_text=today.strftime('%A, %B %-d'),
         schedule_items=schedule_items, agenda=agenda, timed=timed, all_day=all_day,
-        events_today=events_today, today=today.isoformat())
+        events_today=events_today, week_days=week_days, has_planned_meals=has_planned_meals,
+        today=today.isoformat())
 
 
 # --------------- #
@@ -938,6 +948,7 @@ def view_meal_plan(meal_plan_id):
             enriched_meal['is_checked'] = is_checked
             enriched_meal['side_dish'] = side_dish  # re-attach side dish
             enriched_meal['meal_plan_meal_id'] = meal_plan_meal_id
+            enriched_meal['planned_date'] = m.get('planned_date')
             enriched_meals.append(enriched_meal)
         else:
             enriched_meals.append(m)
@@ -946,7 +957,23 @@ def view_meal_plan(meal_plan_id):
     # print(f"Meal Plan: {meal_plan}")
 
     return render_template('meal_plan.html', meal_plan=meal_plan, meals=all_meals, back_href=url_for('routes.meal_plans'),
-                            api_base_url=API_BASE_URL, access_token=g.access_token, random_subhead=random_subheader())
+                            api_base_url=API_BASE_URL, access_token=g.access_token, random_subhead=random_subheader(),
+                            today=_today().isoformat())
+
+
+## ROUTE FOR GIVING A MEAL PLAN'S DINNERS DAYS
+@routes.route('/meal-plans/<int:meal_plan_id>/dates', methods=['POST'])
+@login_required
+def set_meal_plan_dates(meal_plan_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    if request.form.get('start_date'):
+        payload = {'start_date': request.form['start_date']}
+    else:
+        payload = {'dates': {request.form.get('meal_plan_meal_id', ''): request.form.get('date') or None}}
+    response = requests.patch(f"{API_BASE_URL}/meal_plan/{meal_plan_id}/dates", json=payload, headers=headers)
+    if response.status_code != 200:
+        clear_and_flash(response.json().get('error', 'Could not save the days.'), "error")
+    return redirect(url_for('routes.view_meal_plan', meal_plan_id=meal_plan_id))
 
 
 ## ROUTE FOR REORDERING A MEAL PLAN (API CALL) ✅
