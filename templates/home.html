@@ -40,6 +40,24 @@
       </div>
       {% endfor %}
     </div>
+    {% if weather.hours %}
+    <div style="flex: 1 1 340px; min-width: 0;">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-bottom: 8px;">
+        <div style="font-size: 13px; font-weight: 600; color: #4a6556;">Next 12 hours</div>
+        {% if weather.heads_up %}<div style="font-size: 13px; font-weight: 600; color: #2b6a9a;">{{ weather.heads_up }}</div>{% endif %}
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(54px, 1fr)); gap: 6px;">
+        {% for h in weather.hours %}
+        <div style="text-align: center; padding: 6px 2px; border-radius: 10px; background: #f5f9f6;">
+          <div style="font-size: 12px; color: #4a6556;">{{ h.label }}</div>
+          <div style="font-size: 18px;" title="{{ h.words }}" aria-label="{{ h.words }}">{{ h.emoji }}</div>
+          <div style="font-size: 13px; font-weight: 600;">{{ h.temp }}°</div>
+          <div style="font-size: 11px; color: {{ '#2b6a9a' if h.rain >= 40 else '#7a8f82' }};">{{ h.rain }}%</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </section>
   {% endif %}
 
@@ -51,11 +69,12 @@
         <h2 style="margin: 0; font-size: 18px;">Today's Schedule</h2>
         <a href="{{ url_for('routes.schedule') }}" style="font-size: 14px;">Full schedule →</a>
       </div>
+      {% if working_location %}<div style="margin-bottom: 8px;"><span style="font-size: 12px; font-weight: 500; background: #f5f0e8; color: #5a4a2a; border-radius: 20px; padding: 3px 10px;">Working location: {{ working_location }}</span></div>{% endif %}
       {% for item in events_today %}
       <div style="display: flex; gap: 12px; align-items: baseline; padding: 8px 0; border-top: 1px solid #eef4f0;">
         <div style="width: 78px; flex: none; font-size: 13px; color: #4a6556;">{{ item.when }}</div>
         <div style="flex: 1; min-width: 0; font-size: 15px;">
-          {% if item.type == 'meal' %}<span style="font-size: 12px; background: #e6f2ea; color: #1a3a2a; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.meal_type or 'Meal' }}</span>{% if item.label %}<span style="font-size: 12px; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.label }}</span>{% endif %}{% endif %}{% if item.type == 'meal' and item.meal_id %}<a href="{{ url_for('routes.meal_detail', meal_id=item.meal_id) }}" style="color: inherit;">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}{% if item.location %}<span style="font-size: 13px; color: #7a8f82; margin-left: 6px;">· {{ item.location }}</span>{% endif %}
+          {% if item.is_work %}<span style="font-size: 12px; background: #eef3fa; color: #2b4a7a; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">Work</span>{% endif %}{% if item.type == 'meal' %}<span style="font-size: 12px; background: #e6f2ea; color: #1a3a2a; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.meal_type or 'Meal' }}</span>{% if item.label %}<span style="font-size: 12px; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 2px 10px; margin-right: 6px;">{{ item.label }}</span>{% endif %}{% endif %}{% if item.type == 'meal' and item.meal_id %}<a href="{{ url_for('routes.meal_detail', meal_id=item.meal_id) }}" style="color: inherit;">{{ item.title }}</a>{% else %}{{ item.title }}{% endif %}{% if item.location %}<span style="font-size: 13px; color: #7a8f82; margin-left: 6px;">· {{ item.location }}</span>{% endif %}
         </div>
       </div>
       {% else %}
