@@ -24,7 +24,7 @@
   {% if weather or whoop_on or (whoop and whoop.reconnect) %}
   <section style="margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px;">
     {% if weather %}
-    <div style="flex: 1 1 340px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px;">
+    <div style="flex: 1.4 1 340px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px;">
     <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
       <div style="font-size: 40px; line-height: 1;" aria-hidden="true">{{ weather.now.emoji }}</div>
       <div>
@@ -46,12 +46,12 @@
     </div>
     {% endif %}
     {% if whoop_on %}
-    <div style="flex: 1.2 1 400px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px; min-width: 0;">
+    <div style="flex: 1 1 400px; max-width: 520px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px; min-width: 0;">
       <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px;">
         <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #4a6556;"><img src="/static/images/whoop-logo.png" alt="WHOOP" style="height: 14px; width: auto; display: block;"><span>· this week</span></div>
         <a href="{{ url_for('routes.whoop_page') }}" style="font-size: 13px;">Details →</a>
       </div>
-      <div style="display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: flex-start;">
+      <div style="display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-start;">
       {% if whoop.recovery %}
       <div style="flex: none; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; min-width: 96px;">
         {% set rc = whoop.recovery %}
@@ -67,15 +67,15 @@
       <div style="flex: 1 1 220px; min-width: 0;">
       {% if whoop.workouts %}
       <div style="font-size: 13px; color: #4a6556; margin-bottom: 2px;"><strong>{{ whoop.totals.count }}</strong> workout{{ '' if whoop.totals.count == 1 else 's' }} · {{ whoop.totals.duration }}</div>
-      {% for w in whoop.workouts[-5:]|reverse %}
-      <div style="display: flex; align-items: center; gap: 14px; padding: 8px 0; border-top: 1px solid #eef4f0;">
+      {% for w in whoop.workouts[-6:]|reverse %}
+      <div style="display: flex; align-items: center; gap: 14px; padding: 5px 0; border-top: 1px solid #eef4f0;">
         <div style="flex: none; width: 36px; color: #7a8f82; font-size: 13px;">{{ w.day }}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="font-size: 15px; font-weight: 600; text-transform: capitalize;">{{ w.sport }}</div>
           <div style="font-size: 13px; color: #4a6556;">{{ w.duration }}</div>
         </div>
         {% if w.strain is not none %}
-        <svg viewBox="0 0 56 56" width="52" height="52" role="img" aria-label="Strain {{ w.strain }} out of 21" style="flex: none;">
+        <svg viewBox="0 0 56 56" width="44" height="44" role="img" aria-label="Strain {{ w.strain }} out of 21" style="flex: none;">
           <path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="#e8f0ea" stroke-width="6" stroke-linecap="round"/>
           {% if w.strain > 0 %}<path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="#4090e0" stroke-width="6" stroke-linecap="round" pathLength="21" stroke-dasharray="{{ [w.strain, 21]|min }} 21"/>{% endif %}
           <text x="28" y="33" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2b24">{{ w.strain }}</text>
@@ -83,7 +83,7 @@
         {% endif %}
       </div>
       {% endfor %}
-      {% if whoop.workouts|length > 5 %}<div style="font-size: 13px; margin-top: 4px;"><a href="{{ url_for('routes.whoop_page') }}">+{{ whoop.workouts|length - 5 }} more</a></div>{% endif %}
+      {% if whoop.workouts|length > 6 %}<div style="font-size: 13px; margin-top: 4px;"><a href="{{ url_for('routes.whoop_page') }}">+{{ whoop.workouts|length - 6 }} more</a></div>{% endif %}
       {% else %}
       <div style="font-size: 14px; color: #7a8f82;">No workouts yet this week.</div>
       {% endif %}
