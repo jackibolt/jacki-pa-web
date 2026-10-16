@@ -275,7 +275,7 @@ def home():
         if i['type'] in ('todo', 'reminder', 'prep'):
             agenda.append(i)
         (timed if i.get('start_time') else all_day).append(i)
-    events_today = [i for i in schedule_items if i['type'] in ('event', 'meal')]
+    events_today = [i for i in schedule_items if i['type'] in ('event', 'gcal', 'meal')]
     hour = datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).hour
     greeting = 'Good morning' if hour < 12 else 'Good afternoon' if hour < 17 else 'Good evening'
 
@@ -2464,3 +2464,83 @@ def delete_event_item(event_id):
         clear_and_flash("Could not delete the event.", "error")
     return redirect(url_for('routes.schedule'))
 
+
+
+# ----------------------- #
+## GOOGLE CALENDAR (read-only) ##
+
+def _google_callback_url():
+    """The address Google sends the user back to. Must match what is registered in the Google Cloud console."""
+    base = os.getenv('PUBLIC_BASE_URL', '').rstrip('/') or request.url_root.rstrip('/')
+    if base.startswith('http://') and 'localhost' not in base and '127.0.0.1' not in base:
+        base = 'https://' + base[len('http://'):]
+    return f"{base}{url_for('routes.google_callback')}"
+
+
+@routes.route('/google', methods=['GET'])
+@login_required
+def google_calendar():
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.get(f"{API_BASE_URL}/google/status", params={'refresh': request.args.get('refresh', '')},
+                            headers=headers, timeout=20)
+    info = response.json() if response.status_code == 200 else {}
+    if response.status_code != 200:
+        clear_and_flash("Could not reach the server.", "error")
+    return render_template('google_calendar.html', info=info, callback_url=_google_callback_url(),
+                           random_subhead=random_subheader())
+
+
+@routes.route('/google/connect', methods=['GET'])
+@login_required
+def google_connect():
+    state = os.urandom(16).hex()
+    session['google_state'] = state
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.post(f"{API_BASE_URL}/google/auth_url", headers=headers,
+                             json={'redirect_uri': _google_callback_url(), 'state': state}, timeout=15)
+    if response.status_code != 200:
+        clear_and_flash(response.json().get('error', 'Could not start the Google sign-in.'), "error")
+        return redirect(url_for('routes.google_calendar'))
+    return redirect(response.json()['url'])
+
+
+@routes.route('/google/callback', methods=['GET'])
+@login_required
+def google_callback():
+    expected = session.pop('google_state', None)
+    if request.args.get('error'):
+        clear_and_flash("Google Calendar was not connected.", "error")
+    elif not expected or request.args.get('state') != expected or not request.args.get('code'):
+        clear_and_flash("That Google sign-in could not be verified. Please try again.", "error")
+    else:
+        headers = {'Authorization': f"Bearer {g.access_token}"}
+        response = requests.post(f"{API_BASE_URL}/google/connect", headers=headers, timeout=20,
+                                 json={'code': request.args['code'], 'redirect_uri': _google_callback_url()})
+        if response.status_code == 200:
+            clear_and_flash("Google Calendar connected. Choose which calendars to show below.", "success")
+        else:
+            clear_and_flash(response.json().get('error', 'Could not connect Google Calendar.'), "error")
+    return redirect(url_for('routes.google_calendar'))
+
+
+@routes.route('/google/calendars', methods=['POST'])
+@login_required
+def google_choose_calendars():
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.put(f"{API_BASE_URL}/google/calendars", headers=headers,
+                            json={'selected': request.form.getlist('calendar')}, timeout=15)
+    if response.status_code == 200:
+        clear_and_flash("Saved. Those calendars will show on Today and Schedule.", "success")
+    else:
+        clear_and_flash(response.json().get('error', 'Could not save your choice.'), "error")
+    return redirect(url_for('routes.google_calendar'))
+
+
+@routes.route('/google/disconnect', methods=['POST'])
+@login_required
+def google_disconnect():
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.delete(f"{API_BASE_URL}/google", headers=headers, timeout=15)
+    clear_and_flash("Google Calendar disconnected." if response.status_code == 200 else "Could not disconnect.",
+                    "success" if response.status_code == 200 else "error")
+    return redirect(url_for('routes.google_calendar'))

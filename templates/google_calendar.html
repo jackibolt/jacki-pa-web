@@ -1,0 +1,50 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">PLAN</div>
+      <h1 class="page-title">Google Calendar</h1>
+      <div class="page-sub">View-only. Your Google events show on Today and Schedule. Nothing here is ever sent to Google.</div>
+    </div>
+  </div>
+
+  {% if not info.configured %}
+    <p style="color: #4a6556; max-width: 640px;">Google isn't set up on the server yet. It needs the Google client ID and secret added as settings on the API app.</p>
+    <p style="color: #4a6556; max-width: 640px; font-size: 14px;">When you create the Google sign-in key, use this as the redirect address:<br><code>{{ callback_url }}</code></p>
+
+  {% elif not info.connected %}
+    <a href="{{ url_for('routes.google_connect') }}" class="btn btn-primary" style="width: auto; display: inline-block;">Connect Google Calendar</a>
+    <p style="color: #4a6556; font-size: 14px; max-width: 640px; margin-top: 14px;">Google will ask you to approve <em>view-only</em> access to your calendars. If it says the app isn't verified, that's expected for a personal app: choose Advanced, then continue.</p>
+
+  {% else %}
+    {% if info.problem %}
+      <p style="color: #b03a4e;">Google didn't respond. Your calendars may need reconnecting.</p>
+      <form action="{{ url_for('routes.google_disconnect') }}" method="POST" style="display: inline;">
+        <button type="submit" class="btn btn-secondary" style="width: auto;">Disconnect</button>
+      </form>
+      <a href="{{ url_for('routes.google_connect') }}" class="btn btn-primary" style="width: auto; display: inline-block;">Reconnect</a>
+    {% else %}
+      <form action="{{ url_for('routes.google_choose_calendars') }}" method="POST" style="max-width: 560px;">
+        <div style="font-weight: 500; margin-bottom: 8px;">Show these calendars</div>
+        {% for cal in info.calendars %}
+        <label style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #e3eee7; cursor: pointer;">
+          <input type="checkbox" name="calendar" value="{{ cal.id }}" {{ 'checked' if cal.selected }} style="width: 18px; height: 18px;">
+          <span style="width: 12px; height: 12px; border-radius: 50%; background: {{ cal.color or '#8fae9c' }}; flex: none;"></span>
+          <span>{{ cal.name }}</span>
+        </label>
+        {% endfor %}
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px;">
+          <button type="submit" class="btn btn-primary" style="width: auto; flex: 0 0 auto;">Save</button>
+          <a href="{{ url_for('routes.google_calendar', refresh=1) }}" class="btn btn-secondary" style="flex: 0 0 auto; width: auto;">Refresh list</a>
+        </div>
+      </form>
+      <form action="{{ url_for('routes.google_disconnect') }}" method="POST" style="margin-top: 28px;"
+            onsubmit="return confirm('Disconnect Google Calendar?');">
+        <button type="submit" class="btn btn-secondary" style="width: auto;">Disconnect Google Calendar</button>
+      </form>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
