@@ -334,7 +334,7 @@ def home():
     meal_items = [i for i in week_items + past_meals if i['type'] == 'meal']
     for n in range(-1, 6):  # yesterday, today, then five days ahead
         day = today + timedelta(days=n)
-        dinners = [i['title'] for i in meal_items if i['date'] == day.isoformat()]
+        dinners = [{'title': i['title'], 'type': i.get('meal_type', 'Meal')} for i in meal_items if i['date'] == day.isoformat()]
         week_days.append({'label': 'Tonight' if n == 0 else day.strftime('%a'), 'date_text': day.strftime('%b %-d'),
                           'is_today': n == 0, 'is_past': n < 0, 'dinners': dinners})
     has_planned_meals = any(d['dinners'] for d in week_days)
