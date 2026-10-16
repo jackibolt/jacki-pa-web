@@ -5,7 +5,7 @@
   <div class="page-header">
     <div>
       <div class="page-eyebrow">PLAN</div>
-      <h1 class="page-title">WHOOP</h1>
+      <h1 class="page-title"><img src="/static/images/whoop-logo.png" alt="WHOOP" style="height: 26px; width: auto; display: block;"></h1>
       <div class="page-sub">View-only. Your recovery and this week's workouts show on Today. Nothing is ever sent to WHOOP.</div>
     </div>
   </div>
@@ -27,29 +27,71 @@
 
   {% else %}
     {% set rc = info.recovery %}
-    {% if rc and rc.score is not none and rc.state == 'SCORED' %}
-    <p style="font-size: 16px;"><strong>Recovery {{ rc.score }}%</strong>{% if rc.hrv %} · HRV {{ rc.hrv }} ms{% endif %}{% if rc.resting_hr %} · resting HR {{ rc.resting_hr }}{% endif %}</p>
-    {% elif rc %}<p style="color: #4a6556;">Recovery is still being scored.</p>{% endif %}
+    {% set card = 'background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px;' %}
+    <div style="max-width: 760px;">
 
-    <h2 style="font-size: 18px; margin: 20px 0 6px;">This week</h2>
-    {% if info.workouts %}
-    <div style="color: #4a6556; font-size: 14px; margin-bottom: 6px;">{{ info.totals.count }} workout{{ '' if info.totals.count == 1 else 's' }} · {{ info.totals.duration }} total</div>
-    <div style="max-width: 720px;">
+      <div style="{{ card }} display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; margin-bottom: 16px;">
+        {% if rc %}
+        {% set ring = {'green': '#6ee847', 'yellow': '#f9de4b', 'red': '#e93434'}.get(rc.tone, '#d5dfd9') %}
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="flex: none; box-sizing: border-box; width: 88px; height: 88px; border-radius: 50%; border: 9px solid {{ ring }}; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 700;">{% if rc.score is not none %}{{ rc.score }}%{% else %}…{% endif %}</div>
+          <div>
+            <div style="font-size: 18px; font-weight: 600;">Recovery</div>
+            {% if rc.score is not none and rc.state == 'SCORED' %}
+            <div style="font-size: 14px; color: #4a6556;">HRV {{ rc.hrv }} ms<br>Resting HR {{ rc.resting_hr|round|int }}</div>
+            {% else %}<div style="font-size: 14px; color: #7a8f82;">Still being scored</div>{% endif %}
+          </div>
+        </div>
+        {% endif %}
+        <div style="display: flex; gap: 12px; margin-left: auto;">
+          <div style="background: #f5f9f6; border-radius: 10px; padding: 10px 16px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700;">{{ info.totals.count }}</div>
+            <div style="font-size: 12px; color: #4a6556;">workout{{ '' if info.totals.count == 1 else 's' }}</div>
+          </div>
+          <div style="background: #f5f9f6; border-radius: 10px; padding: 10px 16px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700;">{{ info.totals.duration }}</div>
+            <div style="font-size: 12px; color: #4a6556;">this week</div>
+          </div>
+        </div>
+      </div>
+
+      {% if info.workouts %}
       {% for w in info.workouts|reverse %}
-      <div style="display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 0; border-top: 1px solid #e3eee7;">
-        <div style="width: 90px; color: #4a6556;">{{ w.day }} {{ w.start }}</div>
-        <div style="flex: 1 1 180px; font-weight: 500;">{{ w.sport }}</div>
-        <div style="width: 70px;">{{ w.duration }}</div>
-        <div style="width: 90px;">{% if w.strain is not none %}strain {{ w.strain }}{% endif %}</div>
-        <div style="flex: 1 1 160px; color: #4a6556; font-size: 14px;">{% if w.avg_hr %}HR {{ w.avg_hr }} avg / {{ w.max_hr }} max{% endif %}{% if w.calories %} · {{ w.calories }} cal{% endif %}</div>
+      <div style="{{ card }} margin-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 17px; font-weight: 600; text-transform: capitalize;">{{ w.sport }}</div>
+            <div style="font-size: 13px; color: #4a6556;">{{ w.day }} {{ w.start }} · {{ w.duration }}</div>
+          </div>
+          {% if w.strain is not none %}
+          <svg viewBox="0 0 56 56" width="60" height="60" role="img" aria-label="Strain {{ w.strain }} out of 21" style="flex: none;">
+            <path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="#e8f0ea" stroke-width="6" stroke-linecap="round"/>
+            {% if w.strain > 0 %}<path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="#4090e0" stroke-width="6" stroke-linecap="round" pathLength="21" stroke-dasharray="{{ [w.strain, 21]|min }} 21"/>{% endif %}
+            <text x="28" y="32" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2b24">{{ w.strain }}</text>
+            <text x="28" y="44" text-anchor="middle" font-size="7" fill="#7a8f82">STRAIN</text>
+          </svg>
+          {% endif %}
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+          {% if w.avg_hr %}<span style="background: #f5f9f6; border-radius: 8px; padding: 4px 10px; font-size: 13px;">Avg HR <strong>{{ w.avg_hr }}</strong></span>{% endif %}
+          {% if w.max_hr %}<span style="background: #f5f9f6; border-radius: 8px; padding: 4px 10px; font-size: 13px;">Max HR <strong>{{ w.max_hr }}</strong></span>{% endif %}
+          {% if w.calories %}<span style="background: #f5f9f6; border-radius: 8px; padding: 4px 10px; font-size: 13px;"><strong>{{ w.calories }}</strong> cal</span>{% endif %}
+        </div>
+        {% set zt = w.zone_minutes[1:]|sum %}
+        {% if zt and zt > 0 %}
+        <div style="display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 12px; background: #e8f0ea;" title="Time in heart-rate zones 1–5">
+          {% for z in w.zone_minutes[1:] %}{% if z %}<div style="width: {{ (z / zt * 100)|round(1) }}%; background: {{ ['#bcd9f5', '#8dbdee', '#4090e0', '#2a6bb8', '#1b4a85'][loop.index0] }};"></div>{% endif %}{% endfor %}
+        </div>
+        <div style="font-size: 11px; color: #7a8f82; margin-top: 4px;">Heart-rate zones 1–5</div>
+        {% endif %}
       </div>
       {% endfor %}
-    </div>
-    {% else %}<p style="color: #4a6556;">No workouts yet this week.</p>{% endif %}
+      {% else %}<p style="color: #4a6556;">No workouts yet this week.</p>{% endif %}
 
-    <form action="{{ url_for('routes.whoop_disconnect') }}" method="POST" style="margin-top: 28px;" onsubmit="return confirm('Disconnect WHOOP?');">
-      <button type="submit" class="btn btn-secondary" style="width: auto;">Disconnect WHOOP</button>
-    </form>
+      <form action="{{ url_for('routes.whoop_disconnect') }}" method="POST" style="margin-top: 20px;" onsubmit="return confirm('Disconnect WHOOP?');">
+        <button type="submit" class="btn btn-secondary" style="width: auto;">Disconnect WHOOP</button>
+      </form>
+    </div>
   {% endif %}
 </div>
 {% endblock %}
