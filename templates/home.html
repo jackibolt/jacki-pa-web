@@ -75,10 +75,10 @@
           <div style="font-size: 13px; color: #4a6556;">{{ w.duration }}</div>
         </div>
         {% if w.strain is not none %}
-        <svg viewBox="0 0 64 40" width="64" height="40" role="img" aria-label="Strain {{ w.strain }} out of 21" style="flex: none;">
-          <path d="M6 34 A26 26 0 0 1 58 34" fill="none" stroke="#e8f0ea" stroke-width="7" stroke-linecap="round"/>
-          {% if w.strain > 0 %}<path d="M6 34 A26 26 0 0 1 58 34" fill="none" stroke="{{ '#3b7ddd' if w.strain < 14 else '#e0702e' if w.strain < 18 else '#d23a4e' }}" stroke-width="7" stroke-linecap="round" pathLength="21" stroke-dasharray="{{ [w.strain, 21]|min }} 21"/>{% endif %}
-          <text x="32" y="33" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2b24">{{ w.strain }}</text>
+        <svg viewBox="0 0 56 56" width="52" height="52" role="img" aria-label="Strain {{ w.strain }} out of 21" style="flex: none;">
+          <path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="#e8f0ea" stroke-width="6" stroke-linecap="round"/>
+          {% if w.strain > 0 %}<path d="M10.8 41.72 A22 22 0 1 1 45.2 41.72" fill="none" stroke="{{ '#3b7ddd' if w.strain < 14 else '#e0702e' if w.strain < 18 else '#d23a4e' }}" stroke-width="6" stroke-linecap="round" pathLength="21" stroke-dasharray="{{ [w.strain, 21]|min }} 21"/>{% endif %}
+          <text x="28" y="33" text-anchor="middle" font-size="14" font-weight="700" fill="#1d2b24">{{ w.strain }}</text>
         </svg>
         {% endif %}
       </div>
