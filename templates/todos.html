@@ -35,11 +35,19 @@
           </div>
         {% endif %}
       </div>
+      <button type="button" class="btn btn-secondary" style="flex: 0 0 auto; width: auto;" aria-label="Edit: {{ todo.title }}" onclick="var f=document.getElementById('edit-todo-{{ todo.id }}'); f.style.display = f.style.display === 'none' ? 'flex' : 'none';">Edit</button>
       <form action="{{ url_for('routes.delete_todo_item', todo_id=todo.id) }}" method="POST" style="margin: 0;"
             onsubmit="return confirm('Delete this to-do?');">
         <button type="submit" aria-label="Delete: {{ todo.title }}" class="btn btn-secondary">Delete</button>
       </form>
     </div>
+    <form id="edit-todo-{{ todo.id }}" action="{{ url_for('routes.edit_todo', todo_id=todo.id) }}" method="POST"
+          style="display: none; flex-wrap: wrap; gap: 10px; padding: 0 0 14px 38px; border-bottom: 1px solid #e3eee7;">
+      <input type="text" name="title" value="{{ todo.title }}" maxlength="200" required aria-label="Title"
+             style="flex: 1 1 240px; padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+      <input type="date" name="due_date" value="{{ todo.due_date or '' }}" aria-label="Due date" style="padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+      <button type="submit" class="btn btn-primary" style="flex: 0 0 auto; width: auto;">Save</button>
+    </form>
     {% endfor %}
   </div>
   {% else %}

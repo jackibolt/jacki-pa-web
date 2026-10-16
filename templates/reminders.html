@@ -66,11 +66,42 @@
       <form action="{{ url_for('routes.reminder_done', reminder_id=r.id) }}" method="POST" style="margin: 0;">
         <button type="submit" class="btn btn-secondary" aria-label="Mark done: {{ r.title }}">Mark done</button>
       </form>
+      <button type="button" class="btn btn-secondary" style="flex: 0 0 auto; width: auto;" aria-label="Edit: {{ r.title }}" onclick="var f=document.getElementById('edit-rem-{{ r.id }}'); f.style.display = f.style.display === 'none' ? 'flex' : 'none';">Edit</button>
       <form action="{{ url_for('routes.delete_reminder_item', reminder_id=r.id) }}" method="POST" style="margin: 0;"
             onsubmit="return confirm('Delete this reminder?');">
         <button type="submit" class="btn btn-secondary" aria-label="Delete: {{ r.title }}">Delete</button>
       </form>
     </div>
+    <form id="edit-rem-{{ r.id }}" action="{{ url_for('routes.edit_reminder', reminder_id=r.id) }}" method="POST"
+          style="display: none; flex-wrap: wrap; gap: 10px; align-items: flex-end; padding: 0 0 14px; border-bottom: 1px solid #e3eee7;">
+      <div style="flex: 1 1 240px; display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 13px; color: #4a6556;">What</label>
+        <input type="text" name="title" value="{{ r.title }}" maxlength="200" required style="padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 13px; color: #4a6556;">Next due</label>
+        <input type="date" name="next_due" value="{{ r.next_due }}" required style="padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 13px; color: #4a6556;">Repeat every</label>
+        <input type="number" name="interval_value" min="1" max="999" value="{{ r.interval_value or 1 }}" style="width: 80px; padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 13px; color: #4a6556;">Unit</label>
+        <select name="interval_unit" style="padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px; background: #fff;">
+          {% for u in ['days','weeks','months','years'] %}<option value="{{ u }}" {{ 'selected' if r.interval_unit == u }}>{{ u }}</option>{% endfor %}
+          <option value="once" {{ 'selected' if not r.interval_unit }}>Doesn't repeat</option>
+        </select>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 13px; color: #4a6556;">Remind me</label>
+        <select name="lead_days" style="padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px; background: #fff;">
+          {% for n, text in [(0, "The day it's due"), (1, '1 day before'), (3, '3 days before'), (7, '1 week before')] %}<option value="{{ n }}" {{ 'selected' if r.lead_days == n }}>{{ text }}</option>{% endfor %}
+          {% if r.lead_days not in [0, 1, 3, 7] %}<option value="{{ r.lead_days }}" selected>{{ r.lead_days }} days before</option>{% endif %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" style="flex: 0 0 auto; width: auto;">Save</button>
+    </form>
     {% endfor %}
     {% endif %}
   {% endfor %}

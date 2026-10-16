@@ -2237,6 +2237,21 @@ def toggle_todo(todo_id):
     return _back_to('routes.todos')
 
 
+@routes.route('/todos/<int:todo_id>/edit', methods=['POST'])
+@login_required
+def edit_todo(todo_id):
+    title = request.form.get('title', '').strip()
+    if not title:
+        clear_and_flash("A to-do needs a title.", "error")
+        return redirect(url_for('routes.todos'))
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.patch(f"{API_BASE_URL}/todos/{todo_id}", headers=headers,
+                              json={'title': title, 'due_date': request.form.get('due_date') or None})
+    if response.status_code != 200:
+        clear_and_flash(response.json().get('error', 'Could not save the to-do.'), "error")
+    return redirect(url_for('routes.todos'))
+
+
 @routes.route('/todos/<int:todo_id>/delete', methods=['POST'])
 @login_required
 def delete_todo_item(todo_id):
@@ -2323,6 +2338,23 @@ def reminder_done(reminder_id):
     return _back_to('routes.reminders')
 
 
+@routes.route('/reminders/<int:reminder_id>/edit', methods=['POST'])
+@login_required
+def edit_reminder(reminder_id):
+    unit = request.form.get('interval_unit', '')
+    repeats = bool(unit) and unit != 'once'
+    payload = {'title': request.form.get('title', '').strip(),
+               'next_due': request.form.get('next_due', ''),
+               'lead_days': request.form.get('lead_days') or 1,
+               'interval_value': request.form.get('interval_value') if repeats else None,
+               'interval_unit': unit if repeats else None}
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.patch(f"{API_BASE_URL}/reminders/{reminder_id}", json=payload, headers=headers)
+    if response.status_code != 200:
+        clear_and_flash(response.json().get('error', 'Could not save the reminder.'), "error")
+    return redirect(url_for('routes.reminders'))
+
+
 @routes.route('/reminders/<int:reminder_id>/delete', methods=['POST'])
 @login_required
 def delete_reminder_item(reminder_id):
@@ -2361,6 +2393,11 @@ def schedule():
     else:
         clear_and_flash("Could not load your schedule.", "error")
 
+    events_by_id = {}
+    ev_resp = requests.get(f"{API_BASE_URL}/events", headers=headers)
+    if ev_resp.status_code == 200:
+        events_by_id = {e['id']: e for e in ev_resp.json().get('events', [])}
+
     days = []
     for n in range(7):
         day = start + timedelta(days=n)
@@ -2373,7 +2410,7 @@ def schedule():
             day_items.append({**i, 'when': when})
         days.append({'label': label, 'date_text': day.strftime('%b %-d'), 'is_today': day == today, 'items': day_items})
 
-    return render_template('schedule.html', days=days, today=today.isoformat(),
+    return render_template('schedule.html', days=days, today=today.isoformat(), events_by_id=events_by_id,
                            prev_start=(start - timedelta(days=7)).isoformat(),
                            next_start=(start + timedelta(days=7)).isoformat(),
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
@@ -2397,6 +2434,24 @@ def add_event():
     response = requests.post(f"{API_BASE_URL}/events", json=payload, headers=headers)
     if response.status_code != 201:
         clear_and_flash(response.json().get('error', 'Could not add the event.'), "error")
+    return redirect(url_for('routes.schedule'))
+
+
+@routes.route('/events/<int:event_id>/edit', methods=['POST'])
+@login_required
+def edit_event_item(event_id):
+    unit = request.form.get('repeat_unit', '')
+    repeats = bool(unit) and unit != 'once'
+    payload = {'title': request.form.get('title', '').strip(),
+               'event_date': request.form.get('event_date', ''),
+               'start_time': request.form.get('start_time') or None,
+               'end_time': request.form.get('end_time') or None,
+               'repeat_value': request.form.get('repeat_value') if repeats else None,
+               'repeat_unit': unit if repeats else None}
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.patch(f"{API_BASE_URL}/events/{event_id}", json=payload, headers=headers)
+    if response.status_code != 200:
+        clear_and_flash(response.json().get('error', 'Could not save the event.'), "error")
     return redirect(url_for('routes.schedule'))
 
 
