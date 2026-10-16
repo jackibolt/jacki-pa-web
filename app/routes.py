@@ -311,6 +311,28 @@ def home():
 
     show_home_modal = session.pop('show_home_modal', False)
 
+    # Today's schedule (events, to-dos due/overdue, reminders due/overdue)
+    today = _today()
+    schedule_items = []
+    try:
+        sched_res = requests.get(f"{API_BASE_URL}/schedule",
+                                 params={'start': today.isoformat(), 'end': today.isoformat()},
+                                 headers=headers, timeout=15)
+        if sched_res.status_code == 200:
+            schedule_items = sched_res.json().get('items', [])
+    except requests.RequestException as e:
+        print(f"Could not load today's schedule: {e}")
+
+    timed, all_day, agenda = [], [], []
+    for i in schedule_items:
+        i['when'] = _fmt_time(i['start_time']) if i.get('start_time') else 'All day'
+        if i['type'] == 'todo' or i['type'] == 'reminder':
+            agenda.append(i)
+        (timed if i.get('start_time') else all_day).append(i)
+    todos_today = [i for i in agenda if i['type'] == 'todo']
+    hour = datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).hour
+    greeting = 'Good morning' if hour < 12 else 'Good afternoon' if hour < 17 else 'Good evening'
+
     # Build user object for template with name from profile
     user_for_template = {
         **user,
@@ -319,7 +341,10 @@ def home():
 
     return render_template('home.html', meals=sorted_meals[:10], meal_plans=finalized_meal_plans[:5],
         random_subhead=random_subheader(), user=user_for_template, show_home_modal=show_home_modal,
-        help_modal='home', ingredients_count=ingredients_count)
+        help_modal='home', ingredients_count=ingredients_count,
+        greeting=greeting, today_text=today.strftime('%A, %B %-d'),
+        schedule_items=schedule_items, agenda=agenda, timed=timed, all_day=all_day,
+        todos_today=todos_today, today=today.isoformat())
 
 
 # --------------- #
@@ -2129,6 +2154,13 @@ def _today():
     return datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).date()
 
 
+def _back_to(default_endpoint):
+    """Forms on the Today page post with next=home so we return there."""
+    if request.form.get('next') == 'home':
+        return redirect(url_for('routes.home'))
+    return redirect(url_for(default_endpoint))
+
+
 @routes.route('/todos', methods=['GET'])
 @login_required
 def todos():
@@ -2149,13 +2181,13 @@ def add_todo():
     title = request.form.get('title', '').strip()
     if not title:
         clear_and_flash("Give the to-do a title.", "error")
-        return redirect(url_for('routes.todos'))
+        return _back_to('routes.todos')
     payload = {'title': title, 'due_date': request.form.get('due_date') or None}
     headers = {'Authorization': f"Bearer {g.access_token}"}
     response = requests.post(f"{API_BASE_URL}/todos", json=payload, headers=headers)
     if response.status_code != 201:
         clear_and_flash(response.json().get('error', 'Could not add the to-do.'), "error")
-    return redirect(url_for('routes.todos'))
+    return _back_to('routes.todos')
 
 
 @routes.route('/todos/<int:todo_id>/toggle', methods=['POST'])
@@ -2166,7 +2198,7 @@ def toggle_todo(todo_id):
     response = requests.patch(f"{API_BASE_URL}/todos/{todo_id}", json={'done': done}, headers=headers)
     if response.status_code != 200:
         clear_and_flash("Could not update the to-do.", "error")
-    return redirect(url_for('routes.todos'))
+    return _back_to('routes.todos')
 
 
 @routes.route('/todos/<int:todo_id>/delete', methods=['POST'])
@@ -2252,7 +2284,7 @@ def reminder_done(reminder_id):
             clear_and_flash("Done. That was a one-time reminder, so it's finished.", "success")
     else:
         clear_and_flash("Could not update the reminder.", "error")
-    return redirect(url_for('routes.reminders'))
+    return _back_to('routes.reminders')
 
 
 @routes.route('/reminders/<int:reminder_id>/delete', methods=['POST'])
