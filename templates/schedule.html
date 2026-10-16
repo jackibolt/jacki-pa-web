@@ -66,7 +66,7 @@
   {% for day in days %}
   <section style="padding: 14px 0; border-bottom: 1px solid #e3eee7;">
     <h3 style="margin: 0 0 6px; font-size: 16px; color: {{ '#1a3a2a' if day.is_today else '#4a6556' }};">
-      {{ day.label }} <span style="font-weight: 400; font-size: 14px;">· {{ day.date_text }}</span>
+      {{ day.label }} <span style="font-weight: 400; font-size: 14px;">· {{ day.date_text }}</span>{% if day.working_location %} <span style="vertical-align: 2px; margin-left: 6px; font-size: 12px; font-weight: 500; background: #f5f0e8; color: #5a4a2a; border-radius: 20px; padding: 3px 10px;">Working location: {{ day.working_location }}</span>{% endif %}
     </h3>
     {% if not day['items'] %}
       <div style="font-size: 14px; color: #7a8f82;">Nothing scheduled.</div>
@@ -75,6 +75,7 @@
     <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 8px 0;">
       <div style="width: 130px; font-size: 13px; color: #4a6556;">{{ item.when }}</div>
       <div style="flex: 1 1 220px; min-width: 0;">
+        {% if item.is_work %}<span style="font-size: 12px; background: #eef3fa; color: #2b4a7a; border-radius: 20px; padding: 3px 10px; margin-right: 6px;">Work</span>{% endif %}
         <span style="font-size: 15px; font-weight: 500;">{{ item.title }}</span>{% if item.location %}<span style="font-size: 13px; color: #7a8f82; margin-left: 6px;">· {{ item.location }}</span>{% endif %}{% if item.calendar %}<span style="font-size: 12px; color: #7a8f82; margin-left: 6px;">({{ item.calendar }})</span>{% endif %}
         {% if item.overdue %}<span style="font-size: 12px; color: #b03a4e; margin-left: 6px;">Overdue</span>{% endif %}
         {% if item.repeats %}<span style="font-size: 12px; color: #4a6556; margin-left: 6px;">Repeats</span>{% endif %}

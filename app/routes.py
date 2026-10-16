@@ -255,7 +255,7 @@ def home():
     except requests.RequestException as e:
         past_meals = []
         print(f"Could not load the schedule: {e}")
-    schedule_items = [i for i in week_items if i['date'] == today.isoformat()]
+    schedule_items = _mark_work([i for i in week_items if i['date'] == today.isoformat()])
     week_days = []
     meal_items = [i for i in week_items + past_meals if i['type'] == 'meal']
     for n in range(-1, 6):  # yesterday, today, then five days ahead
@@ -276,7 +276,8 @@ def home():
         if i['type'] in ('todo', 'reminder', 'prep'):
             agenda.append(i)
         (timed if i.get('start_time') else all_day).append(i)
-    events_today = [i for i in schedule_items if i['type'] in ('event', 'gcal', 'meal')]
+    events_today = [i for i in schedule_items if i['type'] in ('event', 'gcal')]
+    working_location = next((i['title'] for i in schedule_items if i['type'] == 'workloc'), None)
     hour = datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).hour
     greeting = 'Good morning' if hour < 12 else 'Good afternoon' if hour < 17 else 'Good evening'
 
@@ -287,7 +288,7 @@ def home():
     }
 
     from app.weather import forecast
-    return render_template('home.html', weather=forecast(), google_reconnect=google_reconnect,
+    return render_template('home.html', weather=forecast(), working_location=working_location, google_reconnect=google_reconnect,
         random_subhead=random_subheader(), user=user_for_template, show_home_modal=show_home_modal,
         help_modal='home',
         greeting=greeting, today_text=today.strftime('%A, %B %-d'),
@@ -2192,6 +2193,15 @@ def _today():
     return datetime.now(ZoneInfo(os.getenv("APP_TIMEZONE", "America/Chicago"))).date()
 
 
+def _mark_work(items):
+    """Flag Google events that come from a work calendar (WORK_CALENDARS, default the ProviderTrust one)."""
+    work = {c.strip().lower() for c in os.getenv('WORK_CALENDARS', 'jbolt@providertrust.com').split(',') if c.strip()}
+    for i in items:
+        if i.get('type') == 'gcal':
+            i['is_work'] = (i.get('calendar_id') or '').lower() in work or (i.get('calendar') or '').lower() in work
+    return items
+
+
 def _back_to(default_endpoint):
     """Forms on the Today page post with next=home so we return there."""
     if request.form.get('next') == 'home':
@@ -2391,7 +2401,7 @@ def schedule():
                             params={'start': start.isoformat(), 'end': end.isoformat()}, headers=headers)
     items, google_reconnect = [], False
     if response.status_code == 200:
-        items = response.json().get('items', [])
+        items = _mark_work(response.json().get('items', []))
         google_reconnect = bool(response.json().get('google_reconnect'))
     else:
         clear_and_flash("Could not load your schedule.", "error")
@@ -2405,13 +2415,19 @@ def schedule():
     for n in range(7):
         day = start + timedelta(days=n)
         label = 'Today' if day == today else 'Tomorrow' if day == today + timedelta(days=1) else day.strftime('%A')
-        day_items = []
+        day_items, working_location = [], None
         for i in (x for x in items if x['date'] == day.isoformat()):
+            if i['type'] == 'workloc':  # shown as a pill on the day, not as an item
+                working_location = working_location or i['title']
+                continue
+            if i['type'] == 'meal':  # meals live on the Meals pages and the Today strip, not here
+                continue
             when = 'All day'
             if i.get('start_time'):
                 when = _fmt_time(i['start_time']) + (' – ' + _fmt_time(i['end_time']) if i.get('end_time') else '')
             day_items.append({**i, 'when': when})
-        days.append({'label': label, 'date_text': day.strftime('%b %-d'), 'is_today': day == today, 'items': day_items})
+        days.append({'label': label, 'date_text': day.strftime('%b %-d'), 'is_today': day == today, 'items': day_items,
+                     'working_location': working_location})
 
     return render_template('schedule.html', days=days, today=today.isoformat(), events_by_id=events_by_id, google_reconnect=google_reconnect,
                            prev_start=(start - timedelta(days=7)).isoformat(),
