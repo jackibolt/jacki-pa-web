@@ -78,6 +78,11 @@ def clear_and_flash(msg, category='message'):
 def index():
     return redirect(url_for('routes.login'))
 
+@routes.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
+
+
 ## ROUTE FOR LOGIN PAGE ✅ 
 @routes.route('/login', methods=['GET', 'POST'])
 def login():
