@@ -231,83 +231,8 @@ def home():
     
     session_requests = get_api_session()
 
-    urls = {
-        'meals': f'{API_BASE_URL}/meals',
-        'meal_plans': f'{API_BASE_URL}/meal_plans',
-        'user_profile': f'{API_BASE_URL}/user/profile',
-        'ingredients': f'{API_BASE_URL}/ingredients'
-    }
-
     headers = {'Authorization': f'Bearer {access_token}'}
-    results = threaded_get(urls, headers=headers)
-
-    meals_data = results.get('meals', {})
-    meal_plans_data = results.get('meal_plans', {})
-    ingredients_data = results.get('ingredients', {})
-    user_profile = results.get('user_profile', {}).get('data', {})
-
-    if meals_data['status_code'] != 200 or meal_plans_data['status_code'] != 200:
-        return "Error fetching data from API", 500
-
-    meals_list = meals_data['data'].get('meals', []) if isinstance(meals_data['data'], dict) else meals_data['data'] or []
-    meal_plans_list = meal_plans_data['data'].get('meal_plans', []) if isinstance(meal_plans_data['data'], dict) else meal_plans_data['data'] or []
-    
-    # Get ingredients count
-    ingredients_count = 0
-    if ingredients_data['status_code'] == 200:
-        ingredients_list = ingredients_data['data'] if isinstance(ingredients_data['data'], list) else []
-        ingredients_count = len(ingredients_list)
-
-    # Separate meals into favorites and non-favorites, preserving order in each
-    favorites = [meal for meal in meals_list if meal.get('is_favorite')]
-    non_favorites = [meal for meal in meals_list if not meal.get('is_favorite')]
-
-    # Combine them, with favorites first
-    sorted_meals = favorites + non_favorites
-
-    finalized_meal_plans = []
-    for plan in meal_plans_list:
-        if plan.get('finalized') is True:
-            # Format creation date
-            if 'created_at' in plan:
-                dt = datetime.strptime(plan['created_at'], "%a, %d %b %Y %H:%M:%S %Z")
-                plan['created_at'] = dt.strftime("%b %d, %Y")
-            
-            # Fetch full plan details to get meals
-            plan_id = plan.get('id')
-            detailed_plan_res = requests.get(f'{API_BASE_URL}/meal_plan/{plan_id}', headers=headers)
-            
-            if detailed_plan_res.status_code == 200:
-                detailed_plan = detailed_plan_res.json()
-                meals = detailed_plan.get('meals', [])
-            else:
-                meals = plan.get('meals', [])
-            
-            # Set meals and calculate progress
-            plan['meals'] = meals
-            plan['meals_count'] = len(meals)
-            
-            # Calculate meal completion stats
-            total_meals = len(meals)
-            cooked_meals = sum(1 for m in meals if m.get('is_checked'))
-            percentage = int((cooked_meals / total_meals * 100)) if total_meals > 0 else 0
-            
-            plan['total_meals'] = total_meals
-            plan['cooked_meals'] = cooked_meals
-            plan['percentage'] = percentage
-            
-            finalized_meal_plans.append(plan)
-        else:
-            # 🔥 Delete unfinalized meal plan using the same logic as delete_meal_plan route
-            plan_id = plan.get('id')
-            if plan_id:
-                delete_url = f"{API_BASE_URL}/meal_plan/{plan_id}"
-                try:
-                    del_resp = requests.delete(delete_url, headers=headers, timeout=15)
-                    if del_resp.status_code != 200:
-                        print(f"⚠️ Failed to delete unfinalized meal plan ID {plan_id}: {del_resp.status_code}")
-                except Exception as e:
-                    print(f"❌ Exception while deleting meal plan ID {plan_id}: {e}")
+    user_profile = threaded_get({'user_profile': f'{API_BASE_URL}/user/profile'}, headers=headers).get('user_profile', {}).get('data', {})
 
     show_home_modal = session.pop('show_home_modal', False)
 
@@ -360,9 +285,9 @@ def home():
         'name': user_profile.get('name', user.get('name'))
     }
 
-    return render_template('home.html', meals=sorted_meals[:10], meal_plans=finalized_meal_plans[:5],
+    return render_template('home.html',
         random_subhead=random_subheader(), user=user_for_template, show_home_modal=show_home_modal,
-        help_modal='home', ingredients_count=ingredients_count,
+        help_modal='home',
         greeting=greeting, today_text=today.strftime('%A, %B %-d'),
         schedule_items=schedule_items, agenda=agenda, timed=timed, all_day=all_day,
         events_today=events_today, week_days=week_days, has_planned_meals=has_planned_meals,
@@ -866,7 +791,7 @@ def meal_plans():
     if response.status_code == 200:
         data = response.json()
         meal_plans_list = data.get("meal_plans", [])
-        finalized_plans = []
+        finalized_plans, draft_plans = [], []
 
         for plan in meal_plans_list:
             if plan.get('finalized') is True:
@@ -896,22 +821,15 @@ def meal_plans():
                 
                 finalized_plans.append(plan)
             else:
-                # 🔥 Delete unfinalized meal plan using the same logic as delete_meal_plan route
-                plan_id = plan.get('id')
-                if plan_id:
-                    delete_url = f"{API_BASE_URL}/meal_plan/{plan_id}"
-                    try:
-                        del_resp = requests.delete(delete_url, headers=headers, timeout=15)
-                        if del_resp.status_code != 200:
-                            print(f"⚠️ Failed to delete unfinalized meal plan ID {plan_id}: {del_resp.status_code}")
-                    except Exception as e:
-                        print(f"❌ Exception while deleting meal plan ID {plan_id}: {e}")
+                if 'created_at' in plan:
+                    dt = datetime.strptime(plan['created_at'], "%a, %d %b %Y %H:%M:%S %Z")
+                    plan['created_at'] = dt.strftime("%b %d, %Y")
+                draft_plans.append(plan)
 
-
-        return render_template("meal_plans.html", meal_plans=finalized_plans, random_subhead=random_subheader())
+        return render_template("meal_plans.html", meal_plans=finalized_plans, draft_plans=draft_plans, random_subhead=random_subheader())
 
     print("⚠️ Failed to fetch meal plans.")
-    return render_template("meal_plans.html", meal_plans=[], random_subhead=random_subheader())
+    return render_template("meal_plans.html", meal_plans=[], draft_plans=[], random_subhead=random_subheader())
 
 
 ## ROUTE FOR VIEW A SINGLE MEAL PLAN PAGE ✅
