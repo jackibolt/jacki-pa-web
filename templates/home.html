@@ -92,11 +92,11 @@
     <h2 style="margin: 0 0 10px; font-size: 18px;">Meals for the Week</h2>
     <div style="display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;">
       {% for day in week_days %}
-      <div style="flex: 1 0 120px; border-radius: 12px; padding: 12px 14px; border: 1px solid #d5e4da;
+      <div style="flex: 1 0 120px; border-radius: 12px; padding: 12px 14px; border: 1px solid #d5e4da; {{ 'opacity: .6;' if day.is_past else '' }}
                   background: {{ '#1a3a2a' if day.is_today else '#fff' }}; color: {{ '#f5f0e8' if day.is_today else 'inherit' }};">
         <div style="font-size: 12px; opacity: .75;">{{ day.label }} · {{ day.date_text }}</div>
         {% for d in day.dinners %}<div style="font-size: 14px; margin-top: 6px;">{{ d }}</div>
-        {% else %}<div style="font-size: 13px; margin-top: 6px; opacity: .6;">Nothing planned yet</div>{% endfor %}
+        {% else %}<div style="font-size: 13px; margin-top: 6px; opacity: .6;">{{ 'Nothing planned' if day.is_past else 'Nothing planned yet' }}</div>{% endfor %}
       </div>
       {% endfor %}
     </div>
