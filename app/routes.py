@@ -317,13 +317,13 @@ def home():
     week_items, past_meals = [], []
     try:
         sched_res = requests.get(f"{API_BASE_URL}/schedule",
-                                 params={'start': today.isoformat(), 'end': (today + timedelta(days=3)).isoformat()},
+                                 params={'start': today.isoformat(), 'end': (today + timedelta(days=5)).isoformat()},
                                  headers=headers, timeout=15)
         if sched_res.status_code == 200:
             week_items = sched_res.json().get('items', [])
-        # the three days before today, for the meals strip only (overdue items get pulled onto a range's first day, so keep this separate)
+        # yesterday, for the meals strip only (overdue items get pulled onto a range's first day, so keep this separate)
         past_res = requests.get(f"{API_BASE_URL}/schedule",
-                                params={'start': (today - timedelta(days=3)).isoformat(), 'end': (today - timedelta(days=1)).isoformat()},
+                                params={'start': (today - timedelta(days=1)).isoformat(), 'end': (today - timedelta(days=1)).isoformat()},
                                 headers=headers, timeout=15)
         past_meals = [i for i in past_res.json().get('items', []) if i['type'] == 'meal'] if past_res.status_code == 200 else []
     except requests.RequestException as e:
@@ -332,7 +332,7 @@ def home():
     schedule_items = [i for i in week_items if i['date'] == today.isoformat()]
     week_days = []
     meal_items = [i for i in week_items + past_meals if i['type'] == 'meal']
-    for n in range(-3, 4):  # three days back, today, three days ahead
+    for n in range(-1, 6):  # yesterday, today, then five days ahead
         day = today + timedelta(days=n)
         dinners = [i['title'] for i in meal_items if i['date'] == day.isoformat()]
         week_days.append({'label': 'Tonight' if n == 0 else day.strftime('%a'), 'date_text': day.strftime('%b %-d'),
