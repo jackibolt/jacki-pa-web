@@ -83,7 +83,7 @@
         <span style="font-size: 12px; font-weight: 500; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 3px 10px;">Reminder</span>
         <a href="{{ url_for('routes.reminders') }}" class="btn btn-secondary">Open</a>
       {% elif item.type == 'meal' %}
-        <span style="font-size: 12px; font-weight: 500; background: #f5f0e8; color: #5a4a2a; border-radius: 20px; padding: 3px 10px;">Dinner</span>
+        <span style="font-size: 12px; font-weight: 500; background: #f5f0e8; color: #5a4a2a; border-radius: 20px; padding: 3px 10px;">{{ item.meal_type or 'Meal' }}</span>
         <a href="{{ url_for('routes.view_meal_plan', meal_plan_id=item.meal_plan_id) }}" class="btn btn-secondary">Open</a>
       {% else %}
         <span style="font-size: 12px; font-weight: 500; background: #eef3fa; color: #2b4a7a; border-radius: 20px; padding: 3px 10px;">To-do</span>
