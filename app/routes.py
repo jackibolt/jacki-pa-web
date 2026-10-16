@@ -239,13 +239,14 @@ def home():
     # Next 7 days of everything; today's slice drives the schedule and agenda
     from datetime import timedelta
     today = _today()
-    week_items, past_meals = [], []
+    week_items, past_meals, google_reconnect = [], [], False
     try:
         sched_res = requests.get(f"{API_BASE_URL}/schedule",
                                  params={'start': today.isoformat(), 'end': (today + timedelta(days=5)).isoformat()},
                                  headers=headers, timeout=15)
         if sched_res.status_code == 200:
             week_items = sched_res.json().get('items', [])
+            google_reconnect = bool(sched_res.json().get('google_reconnect'))
         # yesterday, for the meals strip only (overdue items get pulled onto a range's first day, so keep this separate)
         past_res = requests.get(f"{API_BASE_URL}/schedule",
                                 params={'start': (today - timedelta(days=1)).isoformat(), 'end': (today - timedelta(days=1)).isoformat()},
@@ -285,7 +286,7 @@ def home():
         'name': user_profile.get('name', user.get('name'))
     }
 
-    return render_template('home.html',
+    return render_template('home.html', google_reconnect=google_reconnect,
         random_subhead=random_subheader(), user=user_for_template, show_home_modal=show_home_modal,
         help_modal='home',
         greeting=greeting, today_text=today.strftime('%A, %B %-d'),
@@ -2387,9 +2388,10 @@ def schedule():
     headers = {'Authorization': f"Bearer {g.access_token}"}
     response = requests.get(f"{API_BASE_URL}/schedule",
                             params={'start': start.isoformat(), 'end': end.isoformat()}, headers=headers)
-    items = []
+    items, google_reconnect = [], False
     if response.status_code == 200:
         items = response.json().get('items', [])
+        google_reconnect = bool(response.json().get('google_reconnect'))
     else:
         clear_and_flash("Could not load your schedule.", "error")
 
@@ -2410,7 +2412,7 @@ def schedule():
             day_items.append({**i, 'when': when})
         days.append({'label': label, 'date_text': day.strftime('%b %-d'), 'is_today': day == today, 'items': day_items})
 
-    return render_template('schedule.html', days=days, today=today.isoformat(), events_by_id=events_by_id,
+    return render_template('schedule.html', days=days, today=today.isoformat(), events_by_id=events_by_id, google_reconnect=google_reconnect,
                            prev_start=(start - timedelta(days=7)).isoformat(),
                            next_start=(start + timedelta(days=7)).isoformat(),
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
