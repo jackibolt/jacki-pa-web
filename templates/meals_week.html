@@ -35,7 +35,7 @@
         {% endfor %}{% endfor %}
         {% if not day.rows %}<div style="font-size: 14px; opacity: .5; padding: 3px 0;">Nothing planned</div>{% endif %}
       </div>
-      <button type="button" class="wk-add" data-date="{{ day.iso }}" data-slot="{{ day.default_slot }}" data-when="{{ day.label }} {{ day.text }}"
+      <button type="button" class="wk-add" data-date="{{ day.iso }}" data-filled='{{ day.filled|tojson }}' data-when="{{ day.label }} {{ day.text }}"
               title="Add a meal on {{ day.label }}" aria-label="Add a meal on {{ day.label }} {{ day.text }}"
               style="position: absolute; top: 10px; right: 12px; width: 32px; height: 32px; border-radius: 50%; border: 1px solid {{ 'rgba(245,240,232,.4)' if day.is_today else '#c5dccd' }}; background: transparent; color: inherit; font-size: 20px; line-height: 1; cursor: pointer;">+</button>
     </div>
@@ -48,55 +48,74 @@
     }
   </style>
 
-  <dialog id="wk-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 380px);">
-    <form id="wk-form" action="{{ url_for('routes.meals_week_add') }}" method="POST">
-      <h2 id="wk-title" style="margin: 0 0 12px; font-size: 18px;">Add a meal</h2>
+  <dialog id="wk-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 400px);">
+    <h2 id="wk-title" style="margin: 0 0 8px; font-size: 18px;">Add a meal</h2>
+    <datalist id="wk-meals">
+      {% for m in options %}<option value="{{ m.name }}" data-id="{{ m.id }}"></option>{% endfor %}
+    </datalist>
+    {% for kind, label, title in slots %}
+    <form class="wk-row" action="{{ url_for('routes.meals_week_add') }}" method="POST" data-slot="{{ kind }}|{{ label or '' }}" style="margin: 0; padding: 10px 0; border-top: 1px solid #e3eee7;">
       <input type="hidden" name="start" value="{{ start }}">
-      <input type="hidden" name="date" id="wk-date">
-      <input type="hidden" name="meal_id" id="wk-meal-id">
-      <label style="display: block; font-size: 13px; color: #4a6556; margin-bottom: 4px;">For</label>
-      <select name="slot" id="wk-slot" style="width: 100%; margin-bottom: 12px; padding: 8px;">
-        {% for kind, label, title in slots %}<option value="{{ kind }}|{{ label or '' }}">{{ title }}</option>{% endfor %}
-      </select>
-      <label style="display: block; font-size: 13px; color: #4a6556; margin-bottom: 4px;">Meal</label>
-      <input type="text" id="wk-meal" list="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px; margin-bottom: 4px;">
-      <datalist id="wk-meals">
-        {% for m in options %}<option value="{{ m.name }}" data-id="{{ m.id }}"></option>{% endfor %}
-      </datalist>
-      <div id="wk-err" style="min-height: 18px; font-size: 13px; color: #b03a4e;"></div>
-      <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
-        <button type="button" id="wk-cancel" class="btn btn-secondary" style="width: auto;">Cancel</button>
-        <button type="submit" class="btn btn-primary" style="width: auto;">Add</button>
+      <input type="hidden" name="date" class="wk-date">
+      <input type="hidden" name="slot" value="{{ kind }}|{{ label or '' }}">
+      <input type="hidden" name="meal_id" class="wk-meal-id">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 600;">{{ title }}</div>
+          <div class="wk-have" style="font-size: 13px; color: #7a8f82;"></div>
+        </div>
+        <button type="button" class="wk-plus" aria-label="Add to {{ title }}" style="flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid #c5dccd; background: transparent; color: #1a3a2a; font-size: 20px; line-height: 1; cursor: pointer;">+</button>
+      </div>
+      <div class="wk-entry" style="display: none; margin-top: 8px;">
+        <div style="display: flex; gap: 8px;">
+          <input type="text" class="wk-meal" list="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="flex: 1 1 auto; width: 0; min-width: 0; box-sizing: border-box; padding: 8px;">
+          <button type="submit" class="btn btn-primary" style="flex: none; width: auto; padding: 8px 18px;">Add</button>
+        </div>
+        <div class="wk-err" style="min-height: 16px; font-size: 13px; color: #b03a4e; margin-top: 4px;"></div>
       </div>
     </form>
+    {% endfor %}
+    <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+      <button type="button" id="wk-cancel" class="btn btn-secondary" style="width: auto;">Done</button>
+    </div>
   </dialog>
 </div>
 
 <script>
   (function () {
     var dlg = document.getElementById('wk-dialog');
-    var form = document.getElementById('wk-form');
-    var input = document.getElementById('wk-meal');
-    var err = document.getElementById('wk-err');
+    var rows = dlg.querySelectorAll('.wk-row');
     document.querySelectorAll('.wk-add').forEach(function (b) {
       b.addEventListener('click', function () {
-        document.getElementById('wk-date').value = b.dataset.date;
-        document.getElementById('wk-slot').value = b.dataset.slot;
+        var filled = {};
+        try { filled = JSON.parse(b.dataset.filled || '{}'); } catch (e) {}
         document.getElementById('wk-title').textContent = 'Add a meal · ' + b.dataset.when;
-        input.value = ''; err.textContent = '';
+        rows.forEach(function (r) {
+          r.querySelector('.wk-date').value = b.dataset.date;
+          r.querySelector('.wk-have').textContent = (filled[r.dataset.slot] || []).join(', ');
+          r.querySelector('.wk-entry').style.display = 'none';
+          r.querySelector('.wk-meal').value = '';
+          r.querySelector('.wk-err').textContent = '';
+        });
         dlg.showModal();
-        input.focus();
+      });
+    });
+    rows.forEach(function (r) {
+      r.querySelector('.wk-plus').addEventListener('click', function () {
+        var open = r.querySelector('.wk-entry').style.display !== 'none';
+        rows.forEach(function (o) { o.querySelector('.wk-entry').style.display = 'none'; });
+        if (!open) { r.querySelector('.wk-entry').style.display = 'block'; r.querySelector('.wk-meal').focus(); }
+      });
+      r.addEventListener('submit', function (e) {
+        var input = r.querySelector('.wk-meal'), id = null;
+        document.querySelectorAll('#wk-meals option').forEach(function (o) {
+          if (id === null && o.value.toLowerCase() === input.value.trim().toLowerCase()) id = o.dataset.id;
+        });
+        if (!id) { e.preventDefault(); r.querySelector('.wk-err').textContent = 'Pick a meal from the list.'; return; }
+        r.querySelector('.wk-meal-id').value = id;
       });
     });
     document.getElementById('wk-cancel').addEventListener('click', function () { dlg.close(); });
-    form.addEventListener('submit', function (e) {
-      var id = null;
-      document.querySelectorAll('#wk-meals option').forEach(function (o) {
-        if (id === null && o.value.toLowerCase() === input.value.trim().toLowerCase()) id = o.dataset.id;
-      });
-      if (!id) { e.preventDefault(); err.textContent = 'Pick a meal from the list.'; return; }
-      document.getElementById('wk-meal-id').value = id;
-    });
   })();
 </script>
 {% endblock %}
