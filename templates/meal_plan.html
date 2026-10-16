@@ -154,6 +154,12 @@
                 <button type="button" class="wk-place">Back to not planned</button>
             </div>
 
+            {% if other_week_meals %}
+            <div class="wk-other">On other weeks:
+                {% for meal in other_week_meals %}<a href="?week={{ meal.planned_date }}">{{ meal.name }} · {{ meal.planned_text }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+            </div>
+            {% endif %}
+
             <div class="wk-cols">
                 {% for day in week_days %}
                 <div class="day-group wk-day {% if day.iso == today %}is-today{% endif %}" data-date="{{ day.iso }}">
@@ -178,6 +184,8 @@
                 .wk-tray-label strong, .wk-tray-label span { display: block; white-space: nowrap; }
                 .wk-tray .day-rows { display: flex; flex-wrap: wrap; gap: 8px; min-height: 36px; align-items: center; }
                 .wk-tray .dinner { width: 230px; }
+                .wk-other { font-size: 13px; color: #4a6556; margin: -4px 0 12px; }
+                .wk-other a { color: #1a3a2a; }
                 .wk-cols { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 8px; overflow-x: auto; }
                 .wk-day { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
                 .wk-dayhead { background: #fff; border: 1px solid #d5e4da; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; font-size: 12px; color: #4a6556; }

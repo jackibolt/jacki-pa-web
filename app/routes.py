@@ -966,11 +966,15 @@ def view_meal_plan(meal_plan_id):
                   'label': (week_start + timedelta(days=n)).strftime('%a'),
                   'date_text': (week_start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
     week_iso = {d['iso'] for d in week_days}
-    tray_meals = [m for m in enriched_meals if m.get('planned_date') not in week_iso]
+    tray_meals = [m for m in enriched_meals if not m.get('planned_date')]
+    other_week_meals = sorted((m for m in enriched_meals if m.get('planned_date') and m['planned_date'] not in week_iso),
+                              key=lambda m: m['planned_date'])
+    for m in other_week_meals:
+        m['planned_text'] = datetime.strptime(m['planned_date'], '%Y-%m-%d').strftime('%a %b %-d')
 
     return render_template('meal_plan.html', meal_plan=meal_plan, meals=all_meals, back_href=url_for('routes.meal_plans'),
                             api_base_url=API_BASE_URL, access_token=g.access_token, random_subhead=random_subheader(),
-                            today=_today().isoformat(), week_days=week_days, tray_meals=tray_meals,
+                            today=_today().isoformat(), week_days=week_days, tray_meals=tray_meals, other_week_meals=other_week_meals,
                             prev_week=(week_start - timedelta(days=7)).isoformat(),
                             next_week=(week_start + timedelta(days=7)).isoformat())
 
