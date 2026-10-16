@@ -1,0 +1,55 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">PLAN</div>
+      <h1 class="page-title">WHOOP</h1>
+      <div class="page-sub">View-only. Your recovery and this week's workouts show on Today. Nothing is ever sent to WHOOP.</div>
+    </div>
+  </div>
+
+  {% if not info.configured %}
+    <p style="color: #4a6556; max-width: 640px;">WHOOP isn't set up on the server yet. It needs the WHOOP client ID and secret added as settings on the API app.</p>
+    <p style="color: #4a6556; max-width: 640px; font-size: 14px;">When you create the app in the WHOOP developer dashboard, use this as the redirect address:<br><code>{{ callback_url }}</code></p>
+
+  {% elif not info.connected %}
+    <a href="{{ url_for('routes.whoop_connect') }}" class="btn btn-primary" style="width: auto; display: inline-block;">Connect WHOOP</a>
+    <p style="color: #4a6556; font-size: 14px; max-width: 640px; margin-top: 14px;">WHOOP will ask you to approve read-only access to your recovery and workouts.</p>
+
+  {% elif info.reconnect %}
+    <p style="color: #b03a4e;">WHOOP needs to be reconnected.</p>
+    <a href="{{ url_for('routes.whoop_connect') }}" class="btn btn-primary" style="width: auto; display: inline-block;">Reconnect WHOOP</a>
+
+  {% elif info.problem %}
+    <p style="color: #b03a4e;">WHOOP didn't respond just now. Try again in a few minutes.</p>
+
+  {% else %}
+    {% set rc = info.recovery %}
+    {% if rc and rc.score is not none and rc.state == 'SCORED' %}
+    <p style="font-size: 16px;"><strong>Recovery {{ rc.score }}%</strong>{% if rc.hrv %} · HRV {{ rc.hrv }} ms{% endif %}{% if rc.resting_hr %} · resting HR {{ rc.resting_hr }}{% endif %}</p>
+    {% elif rc %}<p style="color: #4a6556;">Recovery is still being scored.</p>{% endif %}
+
+    <h2 style="font-size: 18px; margin: 20px 0 6px;">This week</h2>
+    {% if info.workouts %}
+    <div style="color: #4a6556; font-size: 14px; margin-bottom: 6px;">{{ info.totals.count }} workout{{ '' if info.totals.count == 1 else 's' }} · {{ info.totals.duration }} total</div>
+    <div style="max-width: 720px;">
+      {% for w in info.workouts|reverse %}
+      <div style="display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 10px 0; border-top: 1px solid #e3eee7;">
+        <div style="width: 90px; color: #4a6556;">{{ w.day }} {{ w.start }}</div>
+        <div style="flex: 1 1 180px; font-weight: 500;">{{ w.sport }}</div>
+        <div style="width: 70px;">{{ w.duration }}</div>
+        <div style="width: 90px;">{% if w.strain is not none %}strain {{ w.strain }}{% endif %}</div>
+        <div style="flex: 1 1 160px; color: #4a6556; font-size: 14px;">{% if w.avg_hr %}HR {{ w.avg_hr }} avg / {{ w.max_hr }} max{% endif %}{% if w.calories %} · {{ w.calories }} cal{% endif %}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}<p style="color: #4a6556;">No workouts yet this week.</p>{% endif %}
+
+    <form action="{{ url_for('routes.whoop_disconnect') }}" method="POST" style="margin-top: 28px;" onsubmit="return confirm('Disconnect WHOOP?');">
+      <button type="submit" class="btn btn-secondary" style="width: auto;">Disconnect WHOOP</button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}
