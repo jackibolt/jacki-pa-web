@@ -1,7 +1,11 @@
 {% extends 'layout.html' %}
 
 {% block content %}
-<div class="page">
+<style>
+  .page.home-page { box-sizing: border-box; width: min(1320px, calc(100vw - 48px)); max-width: none; margin-left: 0; margin-right: 0; position: relative; left: 50%; transform: translateX(-50%); }
+  @media (max-width: 760px) { .page.home-page { left: 0; transform: none; width: 100%; } }
+</style>
+<div class="page home-page">
   <div class="page-header">
     <div>
       <div class="page-eyebrow">{{ today_text | upper }}</div>
