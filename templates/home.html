@@ -24,7 +24,7 @@
   {% if weather or whoop_on or (whoop and whoop.reconnect) %}
   <section style="margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px;">
     {% if weather %}
-    <div style="flex: 1.4 1 340px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 14px;">
+    <div style="flex: 1.4 1 340px; background: #fff; border: 1px solid #e3eee7; border-radius: 14px; padding: 16px 20px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 28px;">
     <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
       <div style="font-size: 40px; line-height: 1;" aria-hidden="true">{{ weather.now.emoji }}</div>
       <div>
@@ -33,9 +33,9 @@
         <div style="font-size: 12px; color: #7a8f82;">{{ weather.place }}</div>
       </div>
     </div>
-    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px;">
+    <div style="display: grid; flex: 1 1 250px; max-width: 340px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
       {% for d in weather.days %}
-      <div style="text-align: center; padding: 8px 4px; border-radius: 10px; background: {{ '#e6f2ea' if loop.first else '#f5f9f6' }};">
+      <div style="text-align: center; padding: 10px 4px; border-radius: 10px; background: {{ '#e6f2ea' if loop.first else '#f5f9f6' }};">
         <div style="font-size: 12px; font-weight: 600; color: #4a6556;">{{ d.label }}</div>
         <div style="font-size: 20px;" title="{{ d.words }}" aria-label="{{ d.words }}">{{ d.emoji }}</div>
         <div style="font-size: 13px;"><strong>{{ d.high }}°</strong> <span style="color: #7a8f82;">{{ d.low }}°</span></div>
