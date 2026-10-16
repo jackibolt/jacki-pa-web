@@ -285,7 +285,8 @@ def home():
         'name': user_profile.get('name', user.get('name'))
     }
 
-    return render_template('home.html',
+    from app.weather import forecast
+    return render_template('home.html', weather=forecast(),
         random_subhead=random_subheader(), user=user_for_template, show_home_modal=show_home_modal,
         help_modal='home',
         greeting=greeting, today_text=today.strftime('%A, %B %-d'),
