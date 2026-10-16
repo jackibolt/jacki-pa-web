@@ -272,7 +272,7 @@ def home():
     timed, all_day, agenda = [], [], []
     for i in schedule_items:
         i['when'] = _fmt_time(i['start_time']) if i.get('start_time') else 'All day'
-        if i['type'] == 'todo' or i['type'] == 'reminder':
+        if i['type'] in ('todo', 'reminder', 'prep'):
             agenda.append(i)
         (timed if i.get('start_time') else all_day).append(i)
     events_today = [i for i in schedule_items if i['type'] in ('event', 'meal')]
@@ -416,8 +416,10 @@ def meal_detail(meal_id):
         }
 
         results = threaded_get(urls, headers=headers)
+        prep_resp = requests.get(f'{API_BASE_URL}/meals/{meal_id}/prep', headers=headers)
+        prep_steps = prep_resp.json().get('steps', []) if prep_resp.status_code == 200 else []
         
-        return render_template('meal.html', meal=meal, random_subhead=random_subheader(), api_base_url=API_BASE_URL,
+        return render_template('meal.html', meal=meal, prep_steps=prep_steps, random_subhead=random_subheader(), api_base_url=API_BASE_URL,
                                 cuisines=results['cuisines']['data'] if results['cuisines']['status_code'] == 200 else [],
                                 categories=results['categories']['data'] if results['categories']['status_code'] == 200 else [],
                                 tags=results['tags']['data'] if results['tags']['status_code'] == 200 else [],
@@ -426,6 +428,44 @@ def meal_detail(meal_id):
     
     print("⚠️ Failed to fetch meal details.")
     return redirect(url_for('routes.meals'))
+
+
+## PREP STEPS (things to do ahead of a dish)
+@routes.route('/meals/<int:meal_id>/prep', methods=['POST'])
+@login_required
+def add_prep_step(meal_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    try:
+        days_before = int(request.form.get('days_before', 1))
+    except ValueError:
+        days_before = 1
+    response = requests.post(f"{API_BASE_URL}/meals/{meal_id}/prep", headers=headers,
+                             json={'text': request.form.get('text', ''), 'days_before': days_before})
+    if response.status_code != 201:
+        clear_and_flash((response.json() or {}).get('error', "Could not add the prep step."), "error")
+    return redirect(url_for('routes.meal_detail', meal_id=meal_id))
+
+
+@routes.route('/meals/<int:meal_id>/prep/<int:step_id>/delete', methods=['POST'])
+@login_required
+def delete_prep_step(meal_id, step_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.delete(f"{API_BASE_URL}/prep_steps/{step_id}", headers=headers)
+    if response.status_code != 200:
+        clear_and_flash("Could not remove the prep step.", "error")
+    return redirect(url_for('routes.meal_detail', meal_id=meal_id))
+
+
+@routes.route('/prep/done', methods=['POST'])
+@login_required
+def prep_done():
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.post(f"{API_BASE_URL}/prep_done", headers=headers,
+                             json={'meal_plan_meal_id': request.form.get('meal_plan_meal_id'),
+                                   'step_id': request.form.get('step_id')})
+    if response.status_code != 200:
+        clear_and_flash("Could not update the prep step.", "error")
+    return _back_to('routes.schedule')
 
 
 ## ROUTE TO UPDATE A MEAL (API CALL) ✅

@@ -286,6 +286,29 @@
             {% endif %}
         </div>
 
+        {% if meal %}
+        <div class="card" style="margin-bottom: 16px;">
+            <h3 class="card-title" style="margin: 0 0 4px; padding: 0; border: none;">Prep steps</h3>
+            <div style="font-size: 13px; color: #4a6556; margin-bottom: 10px;">Things to do ahead. They appear on your Today list before the day this meal is planned.</div>
+            {% for step in prep_steps %}
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-top: 1px solid #eef4f0;">
+                <div>{{ step.text }} <span style="font-size: 13px; color: #4a6556;">· {{ 'same day' if step.days_before == 0 else (step.days_before ~ ' day' ~ ('s' if step.days_before != 1 else '') ~ ' before') }}</span></div>
+                <form action="{{ url_for('routes.delete_prep_step', meal_id=meal.id, step_id=step.id) }}" method="POST" style="margin: 0;">
+                    <button type="submit" class="btn btn-secondary" aria-label="Remove: {{ step.text }}" style="font-size: 12px; padding: 5px 10px;">Remove</button>
+                </form>
+            </div>
+            {% endfor %}
+            <form action="{{ url_for('routes.add_prep_step', meal_id=meal.id) }}" method="POST" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;">
+                <input type="text" name="text" maxlength="120" required placeholder="Thaw chicken" aria-label="Prep step"
+                       style="flex: 1 1 180px; padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+                <input type="number" name="days_before" min="0" max="30" value="1" aria-label="Days before"
+                       style="width: 70px; padding: 10px 12px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 15px;">
+                <span style="align-self: center; font-size: 14px; color: #4a6556;">days before</span>
+                <button type="submit" class="btn btn-secondary" style="width: auto;">Add</button>
+            </form>
+        </div>
+        {% endif %}
+
         <div class="actions">
             <form style="display: contents;">
                 <button type="submit" form="{{ 'update-meal-form' if meal else 'create-meal-form' }}" class="btn btn-primary">
