@@ -2731,19 +2731,28 @@ def meals_week():
 @login_required
 def meals_week_add():
     start = request.form.get('start')
+    wants_json = request.headers.get('X-Requested-With') == 'fetch'
     slot = request.form.get('slot', '')
     label = request.form.get('tag', '').strip()[:30]
-    if not request.form.get('meal_id'):
-        clear_and_flash("Pick a meal from the list.", "error")
+
+    def fail(message, code=400):
+        if wants_json:
+            return jsonify({'error': message}), code
+        clear_and_flash(message, "error")
         return redirect(_week_url(start))
+
+    if not request.form.get('meal_id'):
+        return fail("Pick a meal from the list.")
     try:
         res = requests.post(f"{API_BASE_URL}/meals/schedule", timeout=15, headers={'Authorization': f"Bearer {g.access_token}"},
                             json={'date': request.form.get('date'), 'meal_id': request.form.get('meal_id'),
                                   'slot': slot, 'label': label})
-        if res.status_code != 201:
-            clear_and_flash(res.json().get('error', 'Could not add that meal.'), "error")
     except requests.RequestException:
-        clear_and_flash("Could not add that meal right now.", "error")
+        return fail("Could not add that meal right now.", 502)
+    if res.status_code != 201:
+        return fail(res.json().get('error', 'Could not add that meal.'))
+    if wants_json:
+        return jsonify({'title': res.json().get('title'), 'label': res.json().get('label')}), 201
     return redirect(_week_url(start))
 
 

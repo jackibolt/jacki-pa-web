@@ -89,6 +89,8 @@
   (function () {
     var dlg = document.getElementById('wk-dialog');
     var rows = dlg.querySelectorAll('.wk-row');
+    var added_any = false;
+    dlg.addEventListener('close', function () { if (added_any) { window.location.reload(); } });
     document.querySelectorAll('.wk-add').forEach(function (b) {
       b.addEventListener('click', function () {
         var filled = {};
@@ -117,6 +119,20 @@
         });
         if (!id) { e.preventDefault(); r.querySelector('.wk-err').textContent = 'Pick a meal from the list.'; return; }
         r.querySelector('.wk-meal-id').value = id;
+        e.preventDefault();
+        var err = r.querySelector('.wk-err'), have = r.querySelector('.wk-have'), tag = r.querySelector('[name=tag]');
+        err.textContent = '';
+        fetch(r.action, {method: 'POST', body: new FormData(r), headers: {'X-Requested-With': 'fetch'}})
+          .then(function (res) { return res.json().then(function (data) { return {ok: res.ok, data: data}; }); })
+          .then(function (out) {
+            if (!out.ok) { err.textContent = out.data.error || 'Could not add that meal.'; return; }
+            var added = out.data.title + (out.data.label ? ' (' + out.data.label + ')' : '');
+            have.textContent = have.textContent ? have.textContent + ', ' + added : added;
+            input.value = ''; tag.value = '';
+            r.querySelector('.wk-entry').style.display = 'none';
+            added_any = true;
+          })
+          .catch(function () { err.textContent = 'Could not add that meal right now.'; });
       });
     });
     document.getElementById('wk-cancel').addEventListener('click', function () { dlg.close(); });
