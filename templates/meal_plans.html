@@ -42,7 +42,7 @@
           <div class="plan-card-top" onclick="window.location='{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}'">
             <div>
               <div class="plan-card-name">
-                <a href="{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}">{{ plan.name }}</a>
+                <a href="{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}">{{ plan.name }}</a>{% if plan.label %} <span style="font-size: 12px; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 2px 10px; margin-left: 6px; vertical-align: middle;">{{ plan.label }}</span>{% endif %}
               </div>
               <div class="plan-card-meta">
                 <span>{{ plan.meals_count }} meals · Created {{ plan.created_at }}</span>

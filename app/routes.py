@@ -334,7 +334,7 @@ def home():
     meal_items = [i for i in week_items + past_meals if i['type'] == 'meal']
     for n in range(-1, 6):  # yesterday, today, then five days ahead
         day = today + timedelta(days=n)
-        dinners = [{'title': i['title'], 'type': i.get('meal_type', 'Meal')} for i in meal_items if i['date'] == day.isoformat()]
+        dinners = [{'title': i['title'], 'type': i.get('meal_type', 'Meal'), 'label': i.get('label')} for i in meal_items if i['date'] == day.isoformat()]
         week_days.append({'label': 'Tonight' if n == 0 else day.strftime('%a'), 'date_text': day.strftime('%b %-d'),
                           'is_today': n == 0, 'is_past': n < 0, 'dinners': dinners})
     has_planned_meals = any(d['dinners'] for d in week_days)
@@ -986,6 +986,18 @@ def view_meal_plan(meal_plan_id):
                             next_week=(week_start + timedelta(days=7)).isoformat())
 
 
+## ROUTE FOR TAGGING A MEAL PLAN (WHO IT IS FOR)
+@routes.route('/meal-plans/<int:meal_plan_id>/label', methods=['POST'])
+@login_required
+def set_meal_plan_label(meal_plan_id):
+    headers = {'Authorization': f"Bearer {g.access_token}"}
+    response = requests.patch(f"{API_BASE_URL}/meal_plan/{meal_plan_id}/label",
+                              json={'label': request.form.get('label', '')}, headers=headers)
+    if response.status_code != 200:
+        clear_and_flash(response.json().get('error', 'Could not save the tag.'), "error")
+    return redirect(url_for('routes.view_meal_plan', meal_plan_id=meal_plan_id))
+
+
 ## ROUTE FOR GIVING A MEAL PLAN'S DINNERS DAYS
 @routes.route('/meal-plans/<int:meal_plan_id>/dates', methods=['POST'])
 @login_required
@@ -1185,7 +1197,11 @@ def create_meal_plan():
     # Handle the response from the API
     if response.status_code == 201:
         print("✅ Meal plan created successfully!")
-        return redirect(url_for('routes.meal_plan_result', meal_plan_id=response.json().get('meal_plan_id')))
+        new_id = response.json().get('meal_plan_id')
+        label = request.form.get('label', '').strip()
+        if label and new_id:
+            requests.patch(f'{API_BASE_URL}/meal_plan/{new_id}/label', json={'label': label}, headers=headers)
+        return redirect(url_for('routes.meal_plan_result', meal_plan_id=new_id))
     elif response.status_code == 302:
         print("⚠️ Redirected: Check if you're logged in or if data is correct.")
         return redirect(response.headers.get('Location'))  # Redirect based on the header if there's a Location header

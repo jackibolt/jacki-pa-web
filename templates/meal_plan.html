@@ -76,6 +76,13 @@
         <div class="page-header-left">
             <div class="page-eyebrow">Meal plan</div>
             <div class="page-title">{{ meal_plan.meal_plan_name }}</div>
+            <form action="{{ url_for('routes.set_meal_plan_label', meal_plan_id=meal_plan.meal_plan_id) }}" method="POST"
+                  style="display: flex; align-items: center; gap: 8px; margin: 8px 0 0;">
+                <label for="plan-tag" style="font-size: 13px; color: #4a6556;">Tag</label>
+                <input id="plan-tag" type="text" name="label" maxlength="30" value="{{ meal_plan.meal_plan_label or '' }}" placeholder="Jacki, Kids…"
+                       style="min-height: 36px; box-sizing: border-box; width: 150px; padding: 0 10px; border: 1px solid #c3d6c9; border-radius: 10px; font-size: 14px; background: #fff;">
+                <button type="submit" style="min-height: 36px; padding: 0 14px; border: 1px solid #c3d6c9; border-radius: 10px; background: #fff; font-size: 13px; font-weight: 500; cursor: pointer;">Save</button>
+            </form>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
             <a class="btn-edit-plan" href="{{ url_for('routes.meal_plan_result', meal_plan_id=meal_plan.meal_plan_id) }}">✏️ Edit meal selection</a>
