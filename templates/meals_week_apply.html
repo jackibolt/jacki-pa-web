@@ -1,0 +1,131 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-eyebrow">MEALS</div>
+      <h1 class="page-title">{{ tpl_name }}</h1>
+      <div class="page-sub">Week of {{ range_text }}. Review before anything is added.</div>
+    </div>
+    <a href="{{ url_for('routes.meals_week', start=start) }}" class="btn btn-secondary" style="width: auto;">Cancel</a>
+  </div>
+
+  <div style="font-size: 13px; color: #5a7364; margin-bottom: 12px;">
+    <span style="display:inline-block;border:1px dashed #2f8f5b;border-radius:6px;padding:0 6px;color:#2f8f5b;font-weight:700;font-size:11px;">NEW</span>
+    dishes come from {{ tpl_name }}. Move or drop them. Dishes already on your week can be removed with ×.
+  </div>
+
+  <div id="ap-days" style="display: flex; flex-direction: column; gap: 10px;"></div>
+
+  <div style="position: sticky; bottom: 0; background: linear-gradient(transparent, #f5f0e8 30%); padding: 18px 0 8px; display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap;">
+    <span id="ap-err" style="color: #b03a4e; font-size: 13px;"></span>
+    <span id="ap-count" style="font-size: 13px; color: #5a7364;"></span>
+    <button type="button" id="ap-go" class="btn btn-primary" style="width: auto;">Add to my week</button>
+  </div>
+</div>
+
+<script id="ap-data" type="application/json">{{ {'days': days, 'proposed': proposed, 'existing': existing, 'slots': slots, 'start': start, 'name': tpl_name}|tojson }}</script>
+<script>
+  (function () {
+    var D = JSON.parse(document.getElementById('ap-data').textContent);
+    var root = document.getElementById('ap-days');
+    var tones = {Breakfast: '#c27a0a', Lunch: '#c2417a', Snack: '#2f8f5b', Dinner: '#5b4fc4'};
+    var todayLabel = {};
+    D.proposed.forEach(function (p, i) { p.uid = i; });
+
+    function el(tag, css, text) {
+      var e = document.createElement(tag);
+      if (css) { e.style.cssText = css; }
+      if (text !== undefined) { e.textContent = text; }
+      return e;
+    }
+    function tag(label) {
+      return label ? ' (' + label + ')' : '';
+    }
+    function xbtn(title, fn) {
+      var b = el('button', 'background:none;border:0;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;color:inherit;opacity:.5;', '×');
+      b.type = 'button'; b.title = title; b.setAttribute('aria-label', title);
+      b.addEventListener('click', fn);
+      return b;
+    }
+
+    function render() {
+      root.innerHTML = '';
+      D.days.forEach(function (day) {
+        var card = el('div', 'border:1px solid #d5e4da;border-radius:12px;padding:12px 16px;background:#fff;color:#1a3a2a;');
+        var head = el('div', 'display:flex;align-items:baseline;gap:8px;margin-bottom:4px;');
+        head.appendChild(el('div', 'font-size:16px;font-weight:700;', day.label));
+        head.appendChild(el('div', 'font-size:12px;opacity:.65;', day.text));
+        card.appendChild(head);
+
+        var ex = D.existing.filter(function (e) { return e.day === day.iso; });
+        var pr = D.proposed.filter(function (p) { return p.day === day.iso; });
+        var order = D.slots.concat(['Other']);
+        function rank(s) { var i = D.slots.indexOf(s); return i < 0 ? 99 : i; }
+        var all = ex.map(function (e) { return {kind: 'ex', r: e}; }).concat(pr.map(function (p) { return {kind: 'new', r: p}; }));
+        all.sort(function (a, b) { return rank(a.r.slot) - rank(b.r.slot) || (a.kind === 'ex' ? -1 : 1); });
+
+        var lastSlot = null;
+        all.forEach(function (it) {
+          var r = it.r;
+          var row = el('div', 'display:flex;align-items:baseline;gap:10px;padding:3px 0;' + (it.kind === 'new' ? 'color:#2f8f5b;' : ''));
+          var showSlot = r.slot !== lastSlot; lastSlot = r.slot;
+          row.appendChild(el('div', 'flex:none;width:84px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:' + (tones[r.slot] || '#7a8f82') + ';', showSlot ? r.slot : ''));
+          var main = el('div', 'flex:1;min-width:0;font-size:15px;');
+          main.appendChild(document.createTextNode(r.title + tag(r.label)));
+          if (it.kind === 'new') {
+            var b = el('span', 'margin-left:6px;border:1px dashed #2f8f5b;border-radius:6px;padding:0 5px;font-size:10px;font-weight:700;', 'NEW');
+            main.appendChild(b);
+            var clash = ex.some(function (e) { return e.slot === r.slot; });
+            if (clash) { main.appendChild(el('div', 'font-size:12px;color:#c27a0a;', 'Already has a ' + r.slot.toLowerCase() + ' this day')); }
+          }
+          row.appendChild(main);
+          if (it.kind === 'new') {
+            var sel = el('select', 'flex:none;width:112px;min-width:0;box-sizing:border-box;font-size:13px;padding:3px;');
+            sel.setAttribute('aria-label', 'Move ' + r.title + ' to another day');
+            D.days.forEach(function (d) {
+              var o = document.createElement('option'); o.value = d.iso; o.textContent = d.label + ' ' + d.text; if (d.iso === r.day) { o.selected = true; }
+              sel.appendChild(o);
+            });
+            sel.addEventListener('change', function () { r.day = sel.value; render(); });
+            row.appendChild(sel);
+            row.appendChild(xbtn('Drop ' + r.title, function () { D.proposed = D.proposed.filter(function (p) { return p.uid !== r.uid; }); render(); }));
+          } else {
+            row.appendChild(xbtn('Remove ' + r.title + ' from this day', function () { removeExisting(r); }));
+          }
+          card.appendChild(row);
+        });
+        if (!all.length) { card.appendChild(el('div', 'font-size:14px;opacity:.5;padding:3px 0;', 'Nothing planned')); }
+        root.appendChild(card);
+      });
+      document.getElementById('ap-count').textContent = D.proposed.length + ' to add';
+      document.getElementById('ap-go').disabled = !D.proposed.length;
+    }
+
+    function removeExisting(r) {
+      var err = document.getElementById('ap-err'); err.textContent = '';
+      fetch('/meals/week/remove/' + r.id, {method: 'POST', headers: {'X-Requested-With': 'fetch'}})
+        .then(function (res) {
+          if (!res.ok) { throw new Error(); }
+          D.existing = D.existing.filter(function (e) { return e.id !== r.id; }); render();
+        })
+        .catch(function () { err.textContent = 'Could not remove that dish.'; });
+    }
+
+    document.getElementById('ap-go').addEventListener('click', function () {
+      var btn = this, err = document.getElementById('ap-err'); err.textContent = ''; btn.disabled = true;
+      var d = new Date(D.days[0].iso + 'T00:00:00');
+      var name = D.name + ' · ' + d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
+      fetch(window.location.pathname, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'fetch'},
+        body: JSON.stringify({start: D.start, name: name, items: D.proposed.map(function (p) {
+          return {day: p.day, meal_id: p.meal_id, slot: p.slot, label: p.label, side_dish_id: p.side_dish_id};
+        })})})
+        .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); })
+        .then(function (o) { if (o.ok) { window.location = o.j.redirect; } else { err.textContent = o.j.error || 'Could not add those meals.'; btn.disabled = false; } })
+        .catch(function () { err.textContent = 'Could not add those meals right now.'; btn.disabled = false; });
+    });
+    render();
+  })();
+</script>
+{% endblock %}

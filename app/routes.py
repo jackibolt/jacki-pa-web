@@ -2720,7 +2720,8 @@ def meals_week():
         days.append({'iso': day.isoformat(), 'label': day.strftime('%a'), 'text': day.strftime('%b %-d'),
                      'is_today': day == today, 'rows': [r for r in rows if r['dishes']], 'filled': filled})
     tags = sorted({i['label'] for i in meal_items if i.get('label')})
-    return render_template('meals_week.html', days=days, options=options, slots=WEEK_SLOTS, tags=tags,
+    templates_list = _load_templates()
+    return render_template('meals_week.html', days=days, week_templates=templates_list, has_meals=bool(meal_items), options=options, slots=WEEK_SLOTS, tags=tags,
                            start=start.isoformat(), prev_start=(start - timedelta(days=7)).isoformat(),
                            next_start=(start + timedelta(days=7)).isoformat(), is_this_week=(start == _week_start(today)),
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
@@ -2762,8 +2763,109 @@ def meals_week_remove(row_id):
     try:
         res = requests.delete(f"{API_BASE_URL}/meals/schedule/{row_id}", timeout=15,
                               headers={'Authorization': f"Bearer {g.access_token}"})
-        if res.status_code != 200:
-            clear_and_flash("Could not remove that meal.", "error")
+        ok = res.status_code == 200
     except requests.RequestException:
-        clear_and_flash("Could not remove that meal right now.", "error")
+        ok = False
+    if request.headers.get('X-Requested-With') == 'fetch':
+        return jsonify({'ok': ok}), (200 if ok else 502)
+    if not ok:
+        clear_and_flash("Could not remove that meal.", "error")
     return redirect(_week_url(request.form.get('start')))
+
+
+def _api_headers():
+    return {'Authorization': f"Bearer {g.access_token}"}
+
+
+def _load_templates():
+    try:
+        res = requests.get(f"{API_BASE_URL}/week_templates", headers=_api_headers(), timeout=15)
+        if res.status_code == 200:
+            return res.json().get('templates', [])
+    except (requests.RequestException, ValueError):
+        pass
+    return []
+
+
+@routes.route('/meals/week/save-template', methods=['POST'])
+@login_required
+def meals_week_save_template():
+    start = request.form.get('start')
+    name = request.form.get('name', '').strip()
+    if not name:
+        clear_and_flash("Give the week a name.", "error")
+        return redirect(_week_url(start))
+    try:
+        res = requests.post(f"{API_BASE_URL}/week_templates", headers=_api_headers(), timeout=15,
+                            json={'name': name, 'start': start})
+        if res.status_code in (200, 201):
+            clear_and_flash(f"Saved this week as \"{name}\".", "success")
+        else:
+            clear_and_flash(res.json().get('error', 'Could not save that week.'), "error")
+    except (requests.RequestException, ValueError):
+        clear_and_flash("Could not save that week right now.", "error")
+    return redirect(_week_url(start))
+
+
+@routes.route('/meals/week/template/<int:template_id>/delete', methods=['POST'])
+@login_required
+def meals_week_delete_template(template_id):
+    try:
+        requests.delete(f"{API_BASE_URL}/week_templates/{template_id}", headers=_api_headers(), timeout=15)
+    except requests.RequestException:
+        clear_and_flash("Could not delete that week right now.", "error")
+    return redirect(_week_url(request.form.get('start')))
+
+
+@routes.route('/meals/week/apply', methods=['GET'])
+@login_required
+def meals_week_apply():
+    """Review screen: proposed dishes from a standard week, shown next to what's already scheduled. Nothing is saved here."""
+    from datetime import timedelta
+    try:
+        start = _week_start(datetime.strptime(request.args.get('start', ''), '%Y-%m-%d').date())
+    except ValueError:
+        start = _week_start(_today())
+    end = start + timedelta(days=6)
+    try:
+        tres = requests.get(f"{API_BASE_URL}/week_templates/{int(request.args.get('template', 0))}",
+                            headers=_api_headers(), timeout=15)
+        sres = requests.get(f"{API_BASE_URL}/schedule", params={'start': start.isoformat(), 'end': end.isoformat()},
+                            headers=_api_headers(), timeout=15)
+    except (requests.RequestException, ValueError):
+        clear_and_flash("Could not load that week right now.", "error")
+        return redirect(_week_url(start.isoformat()))
+    if tres.status_code != 200:
+        clear_and_flash("That standard week was not found.", "error")
+        return redirect(_week_url(start.isoformat()))
+    tpl = tres.json()
+    existing = [i for i in (sres.json().get('items', []) if sres.status_code == 200 else []) if i['type'] == 'meal']
+    days = [{'iso': (start + timedelta(days=n)).isoformat(), 'label': (start + timedelta(days=n)).strftime('%a'),
+             'text': (start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
+    proposed = [{'meal_id': i['meal_id'], 'title': i['title'], 'slot': i['slot'] or 'Dinner', 'label': i.get('label') or '',
+                 'side_dish_id': i.get('side_dish_id'), 'day': days[i['day_offset']]['iso']}
+                for i in tpl.get('items', []) if 0 <= i['day_offset'] < 7]
+    existing_rows = [{'id': e['id'], 'meal_id': e['meal_id'], 'title': e['title'], 'slot': e.get('meal_type') or 'Dinner',
+                      'label': e.get('label') or '', 'day': e['date']} for e in existing]
+    return render_template('meals_week_apply.html', tpl_name=tpl['name'], days=days, start=start.isoformat(),
+                           proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS,
+                           range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}")
+
+
+@routes.route('/meals/week/apply', methods=['POST'])
+@login_required
+def meals_week_apply_confirm():
+    data = request.get_json(silent=True) or {}
+    items = [{'date': i.get('day'), 'meal_id': i.get('meal_id'), 'slot': i.get('slot'), 'label': i.get('label') or '',
+              'side_dish_id': i.get('side_dish_id')} for i in data.get('items', [])]
+    if not items:
+        return jsonify({'error': 'Nothing to add.'}), 400
+    try:
+        res = requests.post(f"{API_BASE_URL}/meals/schedule/bulk", headers=_api_headers(), timeout=20,
+                            json={'name': str(data.get('name', ''))[:60], 'items': items})
+    except requests.RequestException:
+        return jsonify({'error': 'Could not add those meals right now.'}), 502
+    if res.status_code != 201:
+        return jsonify({'error': res.json().get('error', 'Could not add those meals.')}), 400
+    clear_and_flash(f"Added {res.json().get('count', len(items))} meals to your week.", "success")
+    return jsonify({'redirect': _week_url(data.get('start'))}), 201
