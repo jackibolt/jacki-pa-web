@@ -169,6 +169,56 @@
     <button class="btn-add" onclick="addItem()">+ Add</button>
   </div>
 
+  <!-- Shop for meals / repeating items -->
+  <div class="gx-actions">
+    <button class="btn-toolbar" type="button" onclick="gxToggle('shopPanel')">🛒 Add meals from the week</button>
+    <button class="btn-toolbar" type="button" onclick="gxToggle('repPanel')">🔁 Repeating items{% if recurring %} ({{ recurring | length }}){% endif %}</button>
+  </div>
+
+  <div class="gx-panel" id="shopPanel" {% if not shop_open %}hidden{% endif %}>
+    <div class="gx-row">
+      <label>From <input type="date" id="shopStart"></label>
+      <label>to <input type="date" id="shopEnd"></label>
+    </div>
+    <div id="shopList" class="gx-list"><span class="gx-muted">Loading…</span></div>
+    <div class="gx-row">
+      <button class="btn-add" type="button" id="shopGo" onclick="gxShop()" disabled>Add to list</button>
+      <span class="gx-muted" id="shopMsg"></span>
+    </div>
+  </div>
+
+  <div class="gx-panel" id="repPanel" hidden>
+    {% for r in recurring %}
+    <div class="gx-rec">
+      <span><strong>{{ r.name }}</strong> · every {{ r.repeat_value }} {{ r.repeat_unit }} · next {{ r.next_due }}</span>
+      <button class="btn-toolbar danger" type="button" onclick="gxDeleteRec({{ r.id }})">Delete</button>
+    </div>
+    {% else %}
+    <div class="gx-muted">Nothing repeats yet. Anything you add here goes on the list by itself, on schedule.</div>
+    {% endfor %}
+    <div class="gx-row" style="margin-top:10px;">
+      <input class="add-item-input" type="text" id="recName" placeholder="Item (napkins, paper towels…)">
+      <label>every <input type="number" id="recValue" value="1" min="1" max="999" style="width:64px;"></label>
+      <select id="recUnit"><option value="days">days</option><option value="weeks">weeks</option><option value="months" selected>months</option><option value="years">years</option></select>
+      <label>starting <input type="date" id="recStart"></label>
+      <button class="btn-add" type="button" onclick="gxAddRec()">Save</button>
+    </div>
+    <div class="gx-muted" id="recMsg"></div>
+  </div>
+
+  <style>
+    .gx-actions { display:flex; gap:8px; flex-wrap:wrap; margin: 4px 0 12px; }
+    .gx-panel { background:#fff; border:1px solid #d5e4da; border-radius:14px; padding:14px; margin-bottom:14px; }
+    .gx-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; font-size:13px; color:#4a6556; }
+    .gx-row input[type=date], .gx-row input[type=number], .gx-row select { width:auto; padding:6px 8px; border:1px solid #d5e4da; border-radius:8px; }
+    .gx-list { display:flex; flex-direction:column; gap:6px; }
+    .gx-meal { display:flex; gap:10px; align-items:center; font-size:14px; }
+    .gx-meal input { width:auto; }
+    .gx-muted { font-size:12px; color:#8aaa98; }
+    .gx-warn { font-size:12px; color:#a0651a; }
+    .gx-rec { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:6px 0; font-size:14px; border-bottom:1px solid #eef3ef; }
+  </style>
+
   <!-- Quantity Modal -->
   <div id="quantityModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(26,58,42,0.35); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center;">
     <div style="background: white; padding: 28px 24px; border-radius: 20px; max-width: 320px; width: 90%; text-align: center; box-shadow: 0 20px 60px rgba(26,58,42,0.2), 0 4px 16px rgba(26,58,42,0.1); border: 1.5px solid rgba(26,58,42,0.08);">
@@ -197,7 +247,7 @@
     <div class="plans-section open" id="plansSection">
       <div class="plans-block">
         <div class="plans-block-hdr" onclick="this.closest('.plans-section').classList.toggle('open')">
-          <span class="plans-block-title">Plans in this list</span>
+          <span class="plans-block-title">Meals in this list</span>
           <span class="plans-block-chevron">▼</span>
         </div>
         <div class="plans-list" id="plansList">
@@ -429,13 +479,13 @@
         const planRow = document.createElement('div');
         planRow.className = 'plan-row';
         planRow.id = 'plan-' + id;
-        const planName = mealPlanNames[id] || `Plan ${id}`;
+        const planName = mealPlanNames[id] || 'Meal';
         const itemLabel = itemCount + ' item' + (itemCount !== 1 ? 's' : '');
         const colorIndex = getPlanColorIndex(id);
         planRow.innerHTML = `
           <span class="plan-row-dot" style="background: var(--plan-color-${colorIndex})"></span>
           <div class="plan-row-info">
-            <div class="plan-row-name" style="cursor: pointer;" onclick="window.location.href='/meal-plans/${id}'">${planName}</div>
+            <div class="plan-row-name">${planName}</div>
             <div class="plan-row-meta">${itemLabel}</div>
           </div>
           <button class="btn-remove-plan" onclick="removePlan(${id})">Remove items</button>
@@ -482,115 +532,13 @@
   // ════════════════════════════════════════════════════════════════
 
   function removePlan(planId) {
-    const planName = mealPlanNames[planId] || `Plan ${planId}`;
-    if (!confirm(`Remove all items from "${planName}"?`)) return;
-    
-    // Get the scratch item IDs for this plan
-    const scratchItemIds = scratchItemsByPlan[planId] || [];
-    console.log(`🗑️ Removing items from plan ${planId}:`, scratchItemIds);
-    
-    if (scratchItemIds.length === 0) {
-      console.warn('⚠️ No scratch item IDs found for this plan');
-      alert('No items to remove for this plan');
-      return;
-    }
-    
-    // IMPORTANT: Only delete items that ONLY belong to this plan
-    // If an item belongs to multiple plans, don't delete it entirely
-    const itemsToDelete = [];
-    scratchItemIds.forEach(itemId => {
-      // Find the item in the DOM to check which plans it belongs to
-      const itemElement = document.querySelector(`.g-item[data-item-id="${itemId}"]`);
-      if (itemElement) {
-        const planIds = JSON.parse(itemElement.getAttribute('data-plan-ids') || '[]');
-        console.log(`Item ${itemId} belongs to plans:`, planIds);
-        
-        // Only delete if it ONLY belongs to this plan
-        if (planIds.length === 1 && planIds[0] === planId) {
-          itemsToDelete.push(itemId);
-          console.log(`✓ Will delete item ${itemId} (only in this plan)`);
-        } else {
-          console.log(`⊘ Keeping item ${itemId} (in other plans too)`);
-        }
-      }
-    });
-    
-    if (itemsToDelete.length === 0) {
-      console.warn('⚠️ No items to delete (all items are in other plans too)');
-      
-      // Still remove the plan from the UI even if no items are deleted
-      removePlanRowFromDom(planId);
-      setTimeout(updateCounts, 200);
-      return;
-    }
-    
-    console.log(`📤 Deleting ${itemsToDelete.length} unique items`);
-    
-    // Track deletion progress
-    let successCount = 0;
-    let failureCount = 0;
-    let failures = [];
-    
-    // Delete each scratch item via API
-    const deletePromises = itemsToDelete.map(itemId => {
-      console.log(`📤 Sending DELETE request for item ${itemId}`);
-      return fetch(`/scratch-list/${itemId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      .then(response => {
-        console.log(`📥 Response for item ${itemId}: ${response.status}`);
-        if (response.ok) {
-          successCount++;
-          console.log(`✅ Item ${itemId} deleted successfully`);
-        } else {
-          failureCount++;
-          failures.push(itemId);
-          return response.json().then(data => {
-            console.error(`❌ Failed to delete scratch item ${itemId}: ${response.status}`, data.message);
-          }).catch(() => {
-            console.error(`❌ Failed to delete scratch item ${itemId}: HTTP ${response.status}`);
-          });
-        }
-        return response;
-      })
-      .catch(error => {
-        failureCount++;
-        failures.push(itemId);
-        console.error(`❌ Network error deleting scratch item ${itemId}:`, error);
-      });
-    });
-    
-    // After all deletions are complete, update the UI
-    Promise.all(deletePromises).then(() => {
-      console.log(`✅ Deletion complete: ${successCount} succeeded, ${failureCount} failed`);
-      
-      if (failureCount > 0) {
-        const errorMsg = `Failed to delete ${failureCount} item(s). Please check the browser console for details.`;
-        alert(errorMsg);
-        console.error('Failed item IDs:', failures);
-      }
-      
-      // Remove items from DOM that were deleted
-      itemsToDelete.forEach(itemId => {
-        const item = document.querySelector(`.g-item[data-item-id="${itemId}"]`);
-        if (item) {
-          item.style.transition = 'opacity 0.2s, transform 0.2s';
-          item.style.opacity = '0';
-          item.style.transform = 'translateX(12px)';
-          setTimeout(() => item.remove(), 200);
-        }
-      });
-      
-      // Remove the plan row from the plans section
-      removePlanRowFromDom(planId);
-      
-      setTimeout(updateCounts, 200);
-    });
+    const planName = mealPlanNames[planId] || 'this meal';
+    if (!confirm(`Take "${planName}" off the list? Items only it needed will be removed.`)) return;
+    fetch(`/grocery/meals/${planId}`, { method: 'DELETE' })
+      .then(r => { if (r.ok) window.location.reload(); else alert('Could not remove those items right now.'); })
+      .catch(() => alert('Could not remove those items right now.'));
   }
-  
+
   // Helper function to remove plan row from DOM
   function removePlanRowFromDom(planId) {
     const planRow = document.getElementById('plan-' + planId);
@@ -608,6 +556,62 @@
       }, 200);
     }
   }
+
+
+  // ════════════════════════════════════════════════════════════════
+  // SHOP FOR MEALS / REPEATING ITEMS
+  // ════════════════════════════════════════════════════════════════
+  const gxIso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const gxEsc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function gxToggle(id) {
+    const el = document.getElementById(id);
+    el.hidden = !el.hidden;
+    if (id === 'shopPanel' && !el.hidden) gxLoad();
+  }
+  function gxLoad() {
+    const list = document.getElementById('shopList');
+    fetch(`/grocery/preview?start=${shopStart.value}&end=${shopEnd.value}`).then(r => r.json()).then(data => {
+      const meals = data.meals || [];
+      if (!meals.length) { list.innerHTML = '<span class="gx-muted">No meals planned in these dates.</span>'; shopGo.disabled = true; return; }
+      list.innerHTML = meals.map(m => {
+        const day = new Date(m.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+        const sides = m.sides.length ? ` <span class="gx-muted">+ ${gxEsc(m.sides.join(', '))}</span>` : '';
+        const note = !m.has_ingredients ? ' <span class="gx-warn">⚠ no ingredients yet (<a href="/meals/week">add them</a>)</span>'
+                   : m.on_list ? ' <span class="gx-muted">already on the list</span>' : '';
+        return `<label class="gx-meal"><input type="checkbox" value="${m.id}" ${m.has_ingredients && !m.on_list ? 'checked' : ''} ${m.has_ingredients ? '' : 'disabled'} onchange="gxCount()">
+          <span><strong>${gxEsc(m.title)}</strong>${sides} <span class="gx-muted">· ${day}${m.slot ? ' · ' + gxEsc(m.slot) : ''}</span>${note}</span></label>`;
+      }).join('');
+      gxCount();
+    });
+  }
+  function gxCount() {
+    const n = document.querySelectorAll('#shopList input:checked').length;
+    shopGo.disabled = n === 0;
+    shopGo.textContent = n ? `Add ${n} meal${n > 1 ? 's' : ''} to list` : 'Add to list';
+  }
+  function gxShop() {
+    const ids = Array.from(document.querySelectorAll('#shopList input:checked')).map(i => Number(i.value));
+    shopGo.disabled = true;
+    fetch('/grocery/shop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ meal_plan_meal_ids: ids }) })
+      .then(r => { if (r.ok) window.location.href = '/grocery_list'; else { shopMsg.textContent = 'Could not add those right now.'; shopGo.disabled = false; } });
+  }
+  function gxAddRec() {
+    const body = { name: recName.value, repeat_value: recValue.value, repeat_unit: recUnit.value };
+    if (recStart.value) body.start = recStart.value;
+    fetch('/grocery/recurring', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => { if (ok) window.location.reload(); else recMsg.textContent = d.error || 'Could not save that.'; });
+  }
+  function gxDeleteRec(id) {
+    if (!confirm('Stop repeating this item?')) return;
+    fetch(`/grocery/recurring/${id}`, { method: 'DELETE' }).then(() => window.location.reload());
+  }
+  (function () {
+    const t = new Date(), e = new Date(); e.setDate(t.getDate() + 6);
+    shopStart.value = gxIso(t); shopEnd.value = gxIso(e); recStart.value = gxIso(t);
+    shopStart.addEventListener('change', gxLoad); shopEnd.addEventListener('change', gxLoad);
+    if (!document.getElementById('shopPanel').hidden) gxLoad();
+  })();
 
   // ════════════════════════════════════════════════════════════════
   // ITEM INTERACTIONS

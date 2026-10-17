@@ -14,6 +14,7 @@
       <a href="{{ url_for('routes.meals_week', start=prev_start) }}" class="btn btn-secondary" style="width: auto;">← Prev</a>
       {% if not is_this_week %}<a href="{{ url_for('routes.meals_week') }}" class="btn btn-secondary" style="width: auto;">This week</a>{% endif %}
       <a href="{{ url_for('routes.meals_week', start=next_start) }}" class="btn btn-secondary" style="width: auto;">Next →</a>
+      <a href="{{ url_for('routes.grocery_list', shop=1) }}" class="btn btn-secondary" style="width: auto;">🛒 Shop for these meals</a>
     </div>
   </div>
 

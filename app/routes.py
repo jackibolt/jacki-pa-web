@@ -1217,207 +1217,100 @@ def delete_ingredient(ingredient_id):
 @routes.route('/grocery_list', methods=['GET'])
 @login_required
 def grocery_list():
-    """
-    Display user's personal grocery list (all scratch items from active meal plans).
-    Shows which meal plans contributed items to this list with proper item counts.
-    """
+    """The grocery list. Items are tagged with the planned dishes they are for, shown as "Meals in this list"."""
     headers = {'Authorization': f"Bearer {g.access_token}"}
-    
-    # Fetch all meals first to create a lookup map for ingredients
-    meals_response = requests.get(f'{API_BASE_URL}/meals', headers=headers)
-    meals_by_id = {}
-    if meals_response.status_code == 200:
-        meals_json = meals_response.json()
-        # Meals endpoint returns a list directly, not a dict
-        meals_list = meals_json if isinstance(meals_json, list) else meals_json.get('meals', [])
-        meals_by_id = {meal['id']: meal for meal in meals_list}
-    
-    # Fetch all meal plans
-    meal_plans_response = requests.get(f'{API_BASE_URL}/meal_plans', headers=headers)
-    user_meal_plans = []
-    meal_plan_names = {}
-    finalized_plans = {}  # {plan_id: plan_name}
-    scratch_items_by_plan = {}  # Maps plan_id -> [scratch_item_ids]
-    
-    if meal_plans_response.status_code == 200:
-        meal_plans_data = meal_plans_response.json()
-        user_meal_plans = meal_plans_data.get("meal_plans", [])
-        
-        # Initialize scratch_items_by_plan for all plans
-        for plan in user_meal_plans:
-            plan_id = plan["id"]
-            plan_name = plan.get("name", f"Plan {plan_id}")
-            meal_plan_names[plan_id] = plan_name
-            scratch_items_by_plan[plan_id] = []  # Initialize empty list for each plan
-            
-            if plan.get('finalized'):
-                finalized_plans[plan_id] = plan_name
-        
-        # Fetch scratch items ONCE and use their plan_ids to populate scratch_items_by_plan
-        try:
-            scratch_response = requests.get(
-                f'{API_BASE_URL}/scratch_items',
-                headers=headers
-            )
-            if scratch_response.status_code == 200:
-                scratch_data = scratch_response.json()
-                
-                # For each item, use its plan_ids to determine which plans it belongs to
-                for category_name, items_dict in scratch_data.items():
-                    if isinstance(items_dict, dict):
-                        for ingredient_name, item_data in items_dict.items():
-                            # Use plan_ids from the API response (these are authoritative)
-                            plan_ids = item_data.get('plan_ids', [])
-                            item_id = item_data.get('id')
-                            
-                            if item_id and plan_ids:
-                                # Add this item to each plan it belongs to
-                                for plan_id in plan_ids:
-                                    if plan_id in scratch_items_by_plan:
-                                        if item_id not in scratch_items_by_plan[plan_id]:
-                                            scratch_items_by_plan[plan_id].append(item_id)
-                                print(f"📦 Item '{ingredient_name}' (ID {item_id}) belongs to plans: {plan_ids}, added to scratch_items_by_plan")
-        except Exception as e:
-            import traceback
-            print(f"⚠️ Failed to fetch scratch items: {e}")
-            traceback.print_exc()
-    
-    
-    # Fetch scratch items (user's personal grocery list - consolidated)
+
+    # Repeating items come due when the list is opened, so fetch them before the list itself
+    rec_res = requests.get(f'{API_BASE_URL}/grocery/recurring', headers=headers)
+    recurring = rec_res.json().get('items', []) if rec_res.status_code == 200 else []
+
+    # Dishes that have items on the list
+    meal_names, items_by_meal, meal_ids = {}, {}, []
+    meals_res = requests.get(f'{API_BASE_URL}/grocery/meals', headers=headers)
+    if meals_res.status_code == 200:
+        for m in meals_res.json().get('meals', []):
+            day = ''
+            if m.get('date'):
+                day = ' · ' + datetime.strptime(m['date'], '%Y-%m-%d').strftime('%a %b %-d')
+            meal_names[m['id']] = f"{m['name']}{day}"
+            items_by_meal[m['id']] = m['item_ids']
+            meal_ids.append(m['id'])
+
+    page = dict(meal_plan_ids=meal_ids, meal_plan_id=None, meal_plan_name=None, meal_plan_names=meal_names,
+                scratch_items_by_plan=items_by_meal, recurring=recurring, shop_open=bool(request.args.get('shop')),
+                back_href=url_for('routes.meal_plans'), random_subhead=random_subheader())
+
     scratch_response = requests.get(f'{API_BASE_URL}/scratch_items', headers=headers)
-    
-    # Fetch ingredients and categories for formatting
-    ingred_response = requests.get(f'{API_BASE_URL}/ingredients', headers=headers)
-    categories_resp = requests.get(f'{API_BASE_URL}/ingredient_categories', headers=headers)
-    
-    # Build a mapping of (plan_id, ingredient_name) -> [meal_names]
-    # This will help us show which meals have each ingredient
-    meal_details_map = {}
-    
-    for plan in user_meal_plans:
-        if plan.get('finalized'):
-            plan_id = plan["id"]
-            try:
-                # Fetch the full meal plan which includes meal IDs
-                full_plan_response = requests.get(
-                    f'{API_BASE_URL}/meal_plan/{plan_id}',
-                    headers=headers
-                )
-                if full_plan_response.status_code == 200:
-                    full_plan = full_plan_response.json()
-                    plan_meals = full_plan.get('meals', [])
-                    
-                    # For each meal in the plan, look up its details from meals_by_id
-                    for meal_info in plan_meals:
-                        meal_id = meal_info.get('id')
-                        meal_name = meal_info.get('name', f'Meal {meal_id}')
-                        
-                        # Get full meal details from our lookup map
-                        if meal_id in meals_by_id:
-                            full_meal = meals_by_id[meal_id]
-                            meal_ingredients = full_meal.get('ingredients', [])
-                            
-                            # Map each ingredient to this meal
-                            if meal_ingredients:
-                                for ing in meal_ingredients:
-                                    ing_name = ing.get('name', '')
-                                    ing_qty = ing.get('quantity', 1)
-                                    key = f"{plan_id}:{ing_name}"
-                                    
-                                    if key not in meal_details_map:
-                                        meal_details_map[key] = []
-                                    
-                                    # Check if this meal is already in the list (same meal from same plan)
-                                    meal_exists = any(m['meal_name'] == meal_name for m in meal_details_map[key])
-                                    if not meal_exists:
-                                        meal_details_map[key].append({
-                                            'meal_name': meal_name,
-                                            'quantity': ing_qty,
-                                            'plan_id': plan_id  # Include plan_id so we can show correct plan name
-                                        })
-                        else:
-                            print(f"⚠️ Meal {meal_id} ({meal_name}) not found in meals_by_id lookup")
-            except Exception as e:
-                print(f"⚠️ Failed to fetch meal details for plan {plan_id}: {e}")
-    
-    print(f"📊 Built meal_details_map with {len(meal_details_map)} entries")
-    
     if scratch_response.status_code != 200:
-        return render_template('grocery_list.html', grocery_list={}, 
-                               meal_plan_ids=list(finalized_plans.keys()),
-                               meal_plan_names=meal_plan_names,
-                               scratch_items_by_plan=scratch_items_by_plan,
-                               back_href=url_for('routes.meal_plans'),
-                               random_subhead=random_subheader())
-    
-    # Build lookups
-    categories = categories_resp.json() if categories_resp.status_code == 200 else []
-    category_lookup = {cat["id"]: cat["name"] for cat in categories}
-    
-    ingredients = ingred_response.json() if ingred_response.status_code == 200 else []
-    ingredient_lookup = {ing["id"]: ing for ing in ingredients if not ing.get("is_user_ingredient")}
-    user_ingredient_lookup = {ing["id"]: ing for ing in ingredients if ing.get("is_user_ingredient")}
-    
-    # Format scratch items by category - matching template structure
-    scratch_items = scratch_response.json()
+        return render_template('grocery_list.html', grocery_list={}, **page)
+
+    # API returns: {category: {ingredient: {scratch_details, total_quantity, plan_ids, meal_details}}}
     grocery_dict = {}
-    
-    print(f"🔍 Raw scratch_items response type: {type(scratch_items)}")
-    print(f"🔍 Raw scratch_items response keys: {list(scratch_items.keys()) if isinstance(scratch_items, dict) else 'Not a dict'}")
-    print(f"🔍 Full scratch_items response: {scratch_items}")
-    
-    # API returns: {category: {ingredient: {scratch_details: [...], total_quantity: ..., plan_ids: [...], meal_details: [...]}}}
+    scratch_items = scratch_response.json()
     if isinstance(scratch_items, dict):
         for category_name, ingredients_dict in scratch_items.items():
-            print(f"📂 Processing category: {category_name} with {len(ingredients_dict) if isinstance(ingredients_dict, dict) else '?'} items")
             if not isinstance(ingredients_dict, dict):
                 continue
-            
             grocery_dict[category_name] = {}
-            
-            for ingredient_name, ingredient_data in ingredients_dict.items():
-                print(f"  📦 Processing ingredient: {ingredient_name}")
-                if not isinstance(ingredient_data, dict):
+            for ingredient_name, data in ingredients_dict.items():
+                if not isinstance(data, dict):
                     continue
-                
-                # Get the scratch details and metadata from API (which now includes plan_ids and meal_details)
-                scratch_details = ingredient_data.get("scratch_details", [])
-                total_qty = ingredient_data.get("total_quantity", 0)
-                plan_ids_for_item = ingredient_data.get("plan_ids", [])  # Use plan_ids from API directly
-                meal_details = ingredient_data.get("meal_details", [])    # Use meal_details from API directly
-                
-                # Build the data structure the template expects
+                details = data.get("scratch_details", [])
+                first = details[0] if details else {}
+                total_qty = data.get("total_quantity", 0)
                 grocery_dict[category_name][ingredient_name] = {
-                    "id": scratch_details[0].get("id") if scratch_details else None,
-                    "is_checked": scratch_details[0].get("is_checked", False) if scratch_details else False,
-                    "quantity": scratch_details[0].get("quantity", 1) if scratch_details else 1,
-                    "note": scratch_details[0].get("note", "") if scratch_details else "",
+                    "id": first.get("id"),
+                    "is_checked": first.get("is_checked", False),
+                    "quantity": first.get("quantity", 1),
+                    "note": first.get("note", ""),
                     "average_quantity": total_qty,
                     "total_quantity": total_qty,
-                    "meal_details": meal_details,  # From API response
-                    "scratch_details": scratch_details,
-                    "plan_ids": plan_ids_for_item  # From API response
+                    "meal_details": data.get("meal_details", []),
+                    "scratch_details": details,
+                    "plan_ids": data.get("plan_ids", []),
                 }
-    
-    total_items = sum(len(v) for v in grocery_dict.values())
-    print(f"✅ Built grocery_dict with {len(grocery_dict)} categories, total items: {total_items}")
-    print(f"📋 Finalized plans with items: {finalized_plans}")
-    print(f"🗂️ Scratch items by plan (for deletion): {scratch_items_by_plan}")
-    print(f"📊 Sample grocery_dict item structure: {list(grocery_dict.values())[0] if grocery_dict else 'Empty'}")
-    
-    # Filter out plans with 0 items - only show plans that actually have scratch items
-    plan_ids_with_items = [plan_id for plan_id in finalized_plans.keys() if scratch_items_by_plan.get(plan_id, [])]
-    print(f"📋 Plans to show in UI (filtered): {plan_ids_with_items}")
-    
-    return render_template('grocery_list.html', 
-                           grocery_list=grocery_dict,
-                           meal_plan_ids=plan_ids_with_items,
-                           meal_plan_id=None,
-                           meal_plan_name=None,
-                           meal_plan_names=meal_plan_names,
-                           scratch_items_by_plan=scratch_items_by_plan,
-                           back_href=url_for('routes.meal_plans'),
-                           random_subhead=random_subheader())
+
+    return render_template('grocery_list.html', grocery_list=grocery_dict, **page)
+
+
+## Grocery helpers: shop the week, remove a dish's items, repeating items (all proxied to the API)
+def _grocery_proxy(method, path, **kw):
+    res = requests.request(method, f'{API_BASE_URL}{path}', headers={'Authorization': f"Bearer {g.access_token}"}, **kw)
+    try:
+        body = res.json()
+    except ValueError:
+        body = {}
+    return jsonify(body), res.status_code
+
+
+@routes.route('/grocery/preview', methods=['GET'])
+@login_required
+def grocery_preview():
+    return _grocery_proxy('GET', '/grocery/preview', params=request.args)
+
+
+@routes.route('/grocery/shop', methods=['POST'])
+@login_required
+def grocery_shop():
+    return _grocery_proxy('POST', '/grocery/shop', json=request.get_json(silent=True) or {})
+
+
+@routes.route('/grocery/meals/<int:mpm_id>', methods=['DELETE'])
+@login_required
+def grocery_remove_meal(mpm_id):
+    return _grocery_proxy('DELETE', f'/grocery/meals/{mpm_id}')
+
+
+@routes.route('/grocery/recurring', methods=['POST'])
+@login_required
+def grocery_recurring_add():
+    return _grocery_proxy('POST', '/grocery/recurring', json=request.get_json(silent=True) or {})
+
+
+@routes.route('/grocery/recurring/<int:rid>', methods=['DELETE'])
+@login_required
+def grocery_recurring_delete(rid):
+    return _grocery_proxy('DELETE', f'/grocery/recurring/{rid}')
 
 
 ## ROUTE FOR SINGLE GROCERY LIST PAGE ✅
