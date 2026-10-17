@@ -13,7 +13,7 @@
 
   <div style="font-size: 13px; color: #5a7364; margin-bottom: 12px;">
     <span style="display:inline-block;border:1px dashed #2f8f5b;border-radius:6px;padding:0 6px;color:#2f8f5b;font-weight:700;font-size:11px;">NEW</span>
-    {% if mode == 'pick' %}dishes are random picks. Choose a day for each, drop any you don't want, or re-roll with ↻.{% else %}dishes come from {{ tpl_name }}. Move or drop them.{% endif %}
+    {% if mode == 'pick' %}dishes are random picks. Drag each onto a day (or use its dropdown), drop any you don't want, or re-roll with ↻.{% else %}dishes come from {{ tpl_name }}. Move or drop them.{% endif %}
     Dishes already on your week can be removed with ×.
   </div>
 
@@ -72,7 +72,15 @@
         var lastSlot = null;
         all.forEach(function (it) {
           var r = it.r;
-          var row = el('div', 'display:flex;align-items:baseline;gap:10px;padding:3px 0;' + (it.kind === 'new' ? 'color:#2f8f5b;' : ''));
+          var row = el('div', 'display:flex;align-items:baseline;gap:10px;padding:3px 0;' + (it.kind === 'new' ? 'color:#2f8f5b;cursor:grab;' : ''));
+          if (it.kind === 'new') {
+            row.draggable = true; row.title = 'Drag onto a day';
+            row.addEventListener('dragstart', function (e) {
+              e.dataTransfer.setData('text/plain', String(r.uid)); e.dataTransfer.effectAllowed = 'move';
+              row.style.opacity = '.4';
+            });
+            row.addEventListener('dragend', function () { row.style.opacity = ''; });
+          }
           var showSlot = r.slot !== lastSlot; lastSlot = r.slot;
           row.appendChild(el('div', 'flex:none;width:84px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:' + (tones[r.slot] || '#7a8f82') + ';', showSlot ? r.slot : ''));
           var main = el('div', 'flex:1;min-width:0;font-size:15px;');
@@ -104,6 +112,16 @@
           card.appendChild(row);
         });
         if (!all.length) { card.appendChild(el('div', 'font-size:14px;opacity:.5;padding:3px 0;', 'Nothing planned')); }
+        if (day.iso) {
+          card.addEventListener('dragover', function (e) { e.preventDefault(); card.style.outline = '2px dashed #2f8f5b'; });
+          card.addEventListener('dragleave', function (e) { if (!card.contains(e.relatedTarget)) { card.style.outline = ''; } });
+          card.addEventListener('drop', function (e) {
+            e.preventDefault(); card.style.outline = '';
+            var uid = parseInt(e.dataTransfer.getData('text/plain'), 10);
+            D.proposed.forEach(function (p) { if (p.uid === uid) { p.day = day.iso; } });
+            render();
+          });
+        }
         root.appendChild(card);
       });
       document.getElementById('ap-count').textContent = D.proposed.length + ' to add';
