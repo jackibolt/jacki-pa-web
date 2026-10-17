@@ -13,7 +13,7 @@
 
   <div style="font-size: 13px; color: #5a7364; margin-bottom: 12px;">
     <span style="display:inline-block;border:1px dashed #2f8f5b;border-radius:6px;padding:0 6px;color:#2f8f5b;font-weight:700;font-size:11px;">NEW</span>
-    {% if mode == 'pick' %}dishes are random picks. Drag each onto a day (or use its dropdown), drop any you don't want, or re-roll with ↻.{% else %}dishes come from {{ tpl_name }}. Move or drop them.{% endif %}
+    {% if mode == 'pick' %}dishes are random picks. Drag each onto a day, drop any you don't want, or re-roll with ↻.{% else %}dishes come from {{ tpl_name }}. Move or drop them.{% endif %}
     Dishes already on your week can be removed with ×.
   </div>
 
@@ -26,6 +26,10 @@
   </div>
 </div>
 
+<style>
+  /* With a mouse you drag; the dropdown stays for touch screens */
+  @media (hover: hover) and (pointer: fine) { .ap-sel { display: none; } }
+</style>
 <script id="ap-data" type="application/json">{{ {'days': days, 'proposed': proposed, 'existing': existing, 'slots': slots, 'start': start, 'name': tpl_name, 'mode': mode}|tojson }}</script>
 <script>
   (function () {
@@ -96,6 +100,7 @@
           row.appendChild(main);
           if (it.kind === 'new') {
             var sel = el('select', 'flex:none;width:112px;min-width:0;box-sizing:border-box;font-size:13px;padding:3px;');
+            sel.className = 'ap-sel';
             sel.setAttribute('aria-label', 'Move ' + r.title + ' to another day');
             if (!r.day) { var blank = document.createElement('option'); blank.value = ''; blank.textContent = 'Choose a day…'; blank.selected = true; sel.appendChild(blank); }
             D.days.forEach(function (d) {
