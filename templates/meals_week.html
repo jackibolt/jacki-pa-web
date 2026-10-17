@@ -90,8 +90,8 @@
       </div>
       <div class="wk-entry" style="display: none; margin-top: 8px;">
         <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-          <input type="text" class="wk-meal" list="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="flex: 1 1 100%; box-sizing: border-box; padding: 8px;">
-          <input type="text" name="tag" maxlength="30" list="wk-tags" placeholder="Tag (optional), e.g. Kids" autocomplete="off" style="flex: 1 1 0; min-width: 0; box-sizing: border-box; padding: 8px;">
+          <input type="text" class="wk-meal" data-suggest="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="flex: 1 1 100%; box-sizing: border-box; padding: 8px;">
+          <input type="text" name="tag" maxlength="30" data-suggest="wk-tags" placeholder="Tag (optional), e.g. Kids" autocomplete="off" style="flex: 1 1 0; min-width: 0; box-sizing: border-box; padding: 8px;">
           <button type="submit" class="btn btn-primary" style="flex: none; width: auto; padding: 8px 18px;">Add</button>
         </div>
         <div class="wk-err" style="min-height: 16px; font-size: 13px; color: #b03a4e; margin-top: 4px;"></div>
@@ -108,7 +108,7 @@
       <h2 style="margin: 0 0 6px; font-size: 18px;">Save this week</h2>
       <div style="font-size: 13px; color: #7a8f82; margin-bottom: 10px;">Name it to reuse it later, e.g. Week A. Using an existing name replaces that week.</div>
       <input type="hidden" name="start" value="{{ start }}">
-      <input type="text" name="name" maxlength="60" list="wk-tpl-names" required placeholder="Week A" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
+      <input type="text" name="name" maxlength="60" data-suggest="wk-tpl-names" required placeholder="Week A" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
       <div style="font-size: 13px; color: #5a7364; margin: 12px 0 4px;">Include</div>
       <div style="display: flex; flex-wrap: wrap; gap: 6px 16px;">
         {% for kind in slots %}
@@ -163,7 +163,7 @@
 
   <dialog id="wk-side-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 380px);">
     <h2 id="wk-side-title" style="margin: 0 0 8px; font-size: 18px;">Add a side</h2>
-    <input type="text" id="wk-side-input" list="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
+    <input type="text" id="wk-side-input" data-suggest="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
     <div id="wk-side-err" style="min-height: 16px; font-size: 13px; color: #b03a4e; margin-top: 4px;"></div>
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
       <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Done</button>
@@ -279,6 +279,77 @@
           .then(function (res) { if (res.ok) { chip.remove(); } });
       });
     });
+  })();
+</script>
+
+
+<script>
+  /* Styled type-ahead for inputs with data-suggest="<datalist id>" (the browser's own list can't be styled) */
+  (function () {
+    var box = document.createElement('div');
+    box.setAttribute('role', 'listbox');
+    box.style.cssText = 'position:fixed;display:none;z-index:2147483647;max-height:232px;overflow-y:auto;box-sizing:border-box;background:#fff;color:#1a3a2a;border:1px solid #c5dccd;border-radius:10px;box-shadow:0 8px 24px rgba(26,58,42,.18);padding:4px;font-size:15px;';
+    var current = null, shown = [], active = -1;
+
+    function esc(t) { return t.replace(/[&<>"]/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]; }); }
+    function options(input) {
+      return Array.prototype.map.call(document.querySelectorAll('#' + input.dataset.suggest + ' option'), function (o) { return o.value; });
+    }
+    function hide() { box.style.display = 'none'; active = -1; }
+    function choose(i) { current.value = shown[i]; hide(); current.dispatchEvent(new Event('change', {bubbles: true})); }
+    function paint() {
+      Array.prototype.forEach.call(box.children, function (el, i) {
+        el.style.background = i === active ? '#e3f0e8' : 'transparent';
+        if (i === active) { el.scrollIntoView({block: 'nearest'}); }
+      });
+    }
+    function show(input) {
+      current = input;
+      var q = input.value.trim().toLowerCase();
+      var all = options(input);
+      var starts = all.filter(function (v) { return v.toLowerCase().indexOf(q) === 0; });
+      var has = all.filter(function (v) { return v.toLowerCase().indexOf(q) > 0; });
+      shown = (q ? starts.concat(has) : all).slice(0, 60);
+      if (!shown.length || (shown.length === 1 && shown[0].toLowerCase() === q)) { hide(); return; }
+      box.innerHTML = '';
+      shown.forEach(function (v, i) {
+        var el = document.createElement('div');
+        el.setAttribute('role', 'option');
+        el.style.cssText = 'padding:8px 10px;border-radius:7px;cursor:pointer;line-height:1.25;';
+        var at = q ? v.toLowerCase().indexOf(q) : -1;
+        el.innerHTML = at < 0 ? esc(v) : esc(v.slice(0, at)) + '<strong>' + esc(v.slice(at, at + q.length)) + '</strong>' + esc(v.slice(at + q.length));
+        el.addEventListener('mousedown', function (e) { e.preventDefault(); choose(i); });
+        el.addEventListener('mousemove', function () { active = i; paint(); });
+        box.appendChild(el);
+      });
+      var r = input.getBoundingClientRect();
+      var below = window.innerHeight - r.bottom, h = Math.min(232, shown.length * 36 + 8);
+      box.style.left = r.left + 'px'; box.style.width = r.width + 'px';
+      box.style.top = (below >= h || below >= r.top ? r.bottom + 4 : r.top - h - 4) + 'px';
+      var host = input.closest('dialog') || document.body;
+      if (box.parentNode !== host) { host.appendChild(box); }
+      box.style.display = 'block'; active = -1; box.scrollTop = 0;
+    }
+
+    document.querySelectorAll('input[data-suggest]').forEach(function (input) {
+      input.setAttribute('autocomplete', 'off');
+      input.addEventListener('input', function () { show(input); });
+      input.addEventListener('focus', function () { show(input); });
+      input.addEventListener('blur', function () { setTimeout(function () { if (current === input) { hide(); } }, 0); });
+      input.addEventListener('keydown', function (e) {
+        var open = box.style.display === 'block' && current === input;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          if (!open) { show(input); return; }
+          e.preventDefault();
+          active = (active + (e.key === 'ArrowDown' ? 1 : -1) + shown.length) % shown.length; paint();
+        } else if (e.key === 'Enter' && open && active >= 0) {
+          e.preventDefault(); e.stopImmediatePropagation(); choose(active);
+        } else if (e.key === 'Escape' && open) {
+          e.preventDefault(); hide();
+        }
+      }, true);
+    });
+    document.querySelectorAll('dialog').forEach(function (d) { d.addEventListener('close', hide); });
   })();
 </script>
 
