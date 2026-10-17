@@ -163,7 +163,7 @@
       btn.disabled = true;
       var d = new Date(D.days[0].iso + 'T00:00:00');
       var name = D.name + ' · ' + d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
-      fetch(window.location.pathname, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'fetch'},
+      fetch('/meals/week/apply', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'fetch'},
         body: JSON.stringify({start: D.start, name: name, items: D.proposed.map(function (p) {
           return {day: p.day, meal_id: p.meal_id, slot: p.slot, label: p.label, sides: p.sides || []};
         })})})
