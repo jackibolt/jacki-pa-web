@@ -2397,9 +2397,26 @@ def meals_week():
                      'is_today': day == today, 'rows': [r for r in rows if r['dishes']], 'filled': filled})
     tags = sorted({i['label'] for i in meal_items if i.get('label')})
     templates_list = _load_templates()
+    # Dishes (and sides) this week that have no ingredients, so they would not reach the grocery list
+    missing = {}
+    for i in meal_items:
+        if i.get('has_ingredients') is False:
+            missing.setdefault(i['meal_id'], i['title'])
+        for sd in i.get('sides') or []:
+            if sd.get('has_ingredients') is False:
+                missing.setdefault(sd['meal_id'], sd['title'])
+    ingredient_names = []
+    if missing:
+        try:
+            ires = requests.get(f"{API_BASE_URL}/ingredients", headers=headers, timeout=15)
+            if ires.status_code == 200:
+                ingredient_names = sorted({x['name'] for x in ires.json() if isinstance(x, dict) and x.get('name')}, key=str.lower)
+        except (requests.RequestException, ValueError):
+            pass
     # Side picker: only meals tagged as side dishes (all meals if the API doesn't send that flag yet)
     side_options = [m for m in options if m.get('is_side_dish')] if any('is_side_dish' in m for m in options) else options
-    return render_template('meals_week.html', side_options=side_options, days=days, week_templates=templates_list, has_meals=bool(meal_items), options=options, slots=WEEK_SLOTS, tags=tags,
+    return render_template('meals_week.html', missing=[{'id': k, 'title': v} for k, v in missing.items()],
+                           ingredient_names=ingredient_names, side_options=side_options, days=days, week_templates=templates_list, has_meals=bool(meal_items), options=options, slots=WEEK_SLOTS, tags=tags,
                            start=start.isoformat(), prev_start=(start - timedelta(days=7)).isoformat(),
                            next_start=(start + timedelta(days=7)).isoformat(), is_this_week=(start == _week_start(today)),
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
@@ -2460,6 +2477,21 @@ def meals_week_remove(row_id):
 
 def _api_headers():
     return {'Authorization': f"Bearer {g.access_token}"}
+
+
+@routes.route('/meals/week/ingredients/<int:meal_id>', methods=['POST'])
+@login_required
+def meals_week_ingredients(meal_id):
+    """Quick ingredient fill-in from the week view: JSON {"ingredients": [names]} or {"none_needed": true}."""
+    data = request.get_json(silent=True) or {}
+    payload = {'none_needed': True} if data.get('none_needed') else {
+        'ingredients': [{'name': str(n)} for n in (data.get('ingredients') or [])][:30]}
+    try:
+        res = requests.post(f"{API_BASE_URL}/meals/{meal_id}/ingredients", headers=_api_headers(), timeout=15, json=payload)
+        body = res.json()
+    except (requests.RequestException, ValueError):
+        return jsonify({'error': "Could not save that right now."}), 502
+    return jsonify(body), (200 if res.status_code == 200 else 400)
 
 
 @routes.route('/meals/week/side/<int:row_id>', methods=['POST'])
