@@ -92,7 +92,7 @@
     <!-- PROGRESS BAR -->
     <div class="plan-progress">
         <div class="plan-progress-meta">
-            <span class="plan-progress-count"><span id="progressLabel">0 of {{ meal_plan.meals | length }} cooked</span></span>
+            <span class="plan-progress-count"><span id="progressLabel">0 of {{ meal_plan.meals | length }} done</span></span>
             <span id="progressPct">0%</span>
         </div>
         <div class="plan-progress-track">
@@ -123,10 +123,7 @@
     <!-- MEALS PANEL -->
     <div class="panel active" id="panel-meals">
         {% macro dinner(meal) %}
-        <div class="dinner {% if meal.is_checked %}cooked{% endif %}" draggable="true" data-id="{{ meal.id }}" data-mpm="{{ meal.meal_plan_meal_id }}">
-            <button type="button" class="dinner-check" onclick="toggleCooked(event)" aria-label="Mark {{ meal.name }} cooked">
-                <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8.5" class="ring"/><path d="M5.5 10.5l3 3 6-6.5" class="tick"/></svg>
-            </button>
+        <div class="dinner" draggable="true" data-id="{{ meal.id }}" data-mpm="{{ meal.meal_plan_meal_id }}">
             <div class="dinner-body">
                 <span class="dinner-name">{{ meal.name }}</span>
                 {% if meal.side_dish %}<span class="dinner-side">+ {{ meal.side_dish.name }}</span>{% endif %}
@@ -205,12 +202,7 @@
                 .dinner { display: flex; align-items: flex-start; gap: 6px; box-sizing: border-box; padding: 7px 8px; background: #fff; border: 1px solid #d5e4da; border-radius: 10px; cursor: grab; min-width: 0; }
                 .dinner.dragging { opacity: .5; }
                 .dinner.selected { outline: 2px solid #c8455a; outline-offset: 1px; }
-                .dinner-check, .dinner-star { all: unset; cursor: pointer; flex: none; display: inline-flex; align-items: center; justify-content: center; }
-                .dinner-check .ring { fill: #fff; stroke: #9fb8a8; stroke-width: 1.5; }
-                .dinner-check .tick { fill: none; stroke: transparent; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-                .dinner.cooked .dinner-check .ring { fill: #3d7a57; stroke: #3d7a57; }
-                .dinner.cooked .dinner-check .tick { stroke: #fff; }
-                .dinner.cooked .dinner-name { text-decoration: line-through; opacity: .6; }
+                .dinner-star { all: unset; cursor: pointer; flex: none; display: inline-flex; align-items: center; justify-content: center; }
                 .dinner-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
                 .dinner-name { font-family: 'Fraunces', Georgia, serif; font-size: 13px; line-height: 1.25; color: #1a3a2a; overflow-wrap: break-word; }
                 .dinner-side { font-size: 11px; color: #4a6556; margin-top: 2px; }
@@ -275,6 +267,7 @@
 
 <script>
     const totalMeals = {{ meal_plan.meals | length }};
+    const today = '{{ today }}';
     let dragSrc = null;
     let groceryData = {}; // Will be populated via API or data
 
@@ -626,48 +619,23 @@
     // ════════════════════════════════════════════════════════════════
 
     function getCooked() {
-        return document.querySelectorAll('.dinner.cooked').length;
+        const t = (typeof today !== 'undefined') ? today : new Date().toISOString().slice(0, 10);
+        let n = 0;
+        document.querySelectorAll('.day-group').forEach(g => {
+            const d = g.dataset.date;
+            if (d && d < t) n += g.querySelectorAll('.dinner').length;
+        });
+        return n;
     }
 
     function updateProgress() {
         const cooked = getCooked();
-        const pct = Math.round((cooked / totalMeals) * 100);
+        const pct = totalMeals ? Math.round((cooked / totalMeals) * 100) : 0;
         document.getElementById('progressFill').style.width = pct + '%';
-        document.getElementById('progressLabel').textContent = cooked === totalMeals
+        document.getElementById('progressLabel').textContent = totalMeals && cooked === totalMeals
             ? 'All done! 🎉'
-            : `${cooked} of ${totalMeals} cooked`;
+            : `${cooked} of ${totalMeals} done`;
         document.getElementById('progressPct').textContent = pct + '%';
-
-    }
-
-    function toggleCooked(e) {
-        e.stopPropagation();
-        const row = e.currentTarget.closest('.dinner');
-        row.classList.toggle('cooked');
-        
-        // Update via API
-        const mealId = row.dataset.id;
-        const isCooked = row.classList.contains('cooked');
-        const mealPlanId = {{ meal_plan.meal_plan_id }};
-        
-        const url = `/meal_plan/${mealPlanId}/toggle_checked/${mealId}`;
-        fetch(url, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ is_checked: isCooked })
-        }).then(response => {
-            if (!response.ok) {
-                console.error('Failed to update meal checked state');
-                row.classList.toggle('cooked');
-            }
-        }).catch(error => {
-            console.error('Error:', error);
-            row.classList.toggle('cooked');
-        });
-        
-        updateProgress();
     }
 
     // ── MOVE A DINNER TO A DAY (drag on desktop, tap then "Put it here" on phones) ──
@@ -707,7 +675,7 @@
                 dragSrc = null;
             });
             row.addEventListener('click', e => {
-                if (e.target.closest('.dinner-check, .dinner-star, .dinner-open')) return;
+                if (e.target.closest('.dinner-star, .dinner-open')) return;
                 select(row);
             });
         });

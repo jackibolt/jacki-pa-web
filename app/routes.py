@@ -841,7 +841,11 @@ def meal_plans():
         meal_plans_list = data.get("meal_plans", [])
         finalized_plans, draft_plans = [], []
 
+        today_iso = _today().isoformat()
         for plan in meal_plans_list:
+            pname = (plan.get('name') or '')
+            if plan.get('finalized') is True and (pname.lower() == 'added individually' or pname.lower().startswith('random picks')):
+                continue  # bookkeeping plans, not shown in the list
             if plan.get('finalized') is True:
                 # Format creation date
                 if 'created_at' in plan:
@@ -860,7 +864,7 @@ def meal_plans():
                 
                 # Calculate meal completion stats
                 total_meals = len(meals)
-                cooked_meals = sum(1 for m in meals if m.get('is_checked'))
+                cooked_meals = sum(1 for m in meals if m.get('planned_date') and str(m['planned_date'])[:10] < today_iso)
                 percentage = int((cooked_meals / total_meals * 100)) if total_meals > 0 else 0
                 
                 plan['total_meals'] = total_meals
@@ -1011,28 +1015,6 @@ def reorder_meal_plan(meal_plan_id):
     print(ordered_id_json)
 
     response = requests.patch(api_url, json=ordered_id_json, headers=headers)
-
-    if response.ok:
-        return jsonify({"success": True})
-    else:
-        return jsonify({"success": False, "error": response.text}), response.status_code
-
-
-## ROUTE FOR TOGGLING CHECKED STATE OF A MEAL ✅
-@routes.route('/meal_plan/<int:meal_plan_id>/toggle_checked/<int:meal_id>', methods=['PATCH'])
-@login_required
-def toggle_checked_meal(meal_plan_id, meal_id):
-    try:
-        data = request.get_json()
-        is_checked = data.get("is_checked", False)
-    except Exception:
-        return jsonify({"success": False, "error": "Invalid JSON"}), 400
-
-    # Send to API
-    api_url = f"{API_BASE_URL}/meal_plan/{meal_plan_id}/toggle_checked/{meal_id}"
-    headers = {'Authorization': f"Bearer {g.access_token}"}
-
-    response = requests.patch(api_url, json={"is_checked": is_checked}, headers=headers)
 
     if response.ok:
         return jsonify({"success": True})

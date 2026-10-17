@@ -19,6 +19,14 @@
     <input class="search-input-meal-plans" type="text" id="mealPlanSearch" placeholder="Search your plans…">
   </div>
 
+  {% if meal_plans %}
+  <div id="selectBar" style="display:flex; gap:8px; justify-content:flex-end; align-items:center; margin-bottom:10px; font-size:13px;">
+    <button type="button" id="selectToggle" class="btn-plan-view">Select</button>
+    <button type="button" id="selectAll" class="btn-plan-view" style="display:none;">Select all</button>
+    <button type="button" id="deleteSelected" class="btn-plan-delete" style="display:none;" disabled>Delete selected (0)</button>
+  </div>
+  {% endif %}
+
   <!-- Flash message -->
   {% with messages = get_flashed_messages() %}
     {% if messages %}
@@ -61,6 +69,7 @@
       {% for plan in meal_plans %}
         <div class="plan-card" data-name="{{ plan.name | lower }}" data-id="{{ plan.id }}" style="animation-delay:{{ loop.index0 * 0.05 }}s; --progress: {{ plan.percentage }};">
           <div class="plan-card-top" onclick="window.location='{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}'">
+            <input type="checkbox" class="plan-select" data-id="{{ plan.id }}" style="display:none; width:18px; height:18px; margin-right:10px; flex:none;" onclick="event.stopPropagation()">
             <div>
               <div class="plan-card-name">
                 <a href="{{ url_for('routes.view_meal_plan', meal_plan_id=plan.id) }}">{{ plan.name }}</a>{% if plan.label %} <span style="font-size: 12px; background: #fbeaed; color: #8f2a3c; border-radius: 20px; padding: 2px 10px; margin-left: 6px; vertical-align: middle;">{{ plan.label }}</span>{% endif %}
@@ -80,7 +89,7 @@
           </div>
           <div class="plan-progress">
             <div class="plan-progress-labels">
-              <span class="cooked-label">{% if plan.percentage == 100 %}All {{ plan.total_meals }} meals cooked 🎉{% else %}{{ plan.cooked_meals }} of {{ plan.total_meals }} cooked{% endif %}</span>
+              <span class="cooked-label">{% if plan.percentage == 100 %}All {{ plan.total_meals }} meals done 🎉{% else %}{{ plan.cooked_meals }} of {{ plan.total_meals }} done{% endif %}</span>
               <span>{{ plan.percentage }}%</span>
             </div>
             <div class="plan-progress-track"><div class="plan-progress-fill{% if plan.percentage == 100 %} complete{% endif %}" style="width:{{ plan.percentage }}%"></div></div>
@@ -103,6 +112,36 @@
 
 <script>
   let selectedMealPlans = [];
+
+  // Multi-select delete
+  (function () {
+    const toggle = document.getElementById('selectToggle');
+    if (!toggle) return;
+    const all = document.getElementById('selectAll'), del = document.getElementById('deleteSelected');
+    const boxes = () => Array.from(document.querySelectorAll('.plan-select'));
+    let on = false;
+    function refresh() {
+      const n = boxes().filter(b => b.checked).length;
+      del.textContent = `Delete selected (${n})`; del.disabled = n === 0;
+    }
+    toggle.addEventListener('click', () => {
+      on = !on;
+      toggle.textContent = on ? 'Cancel' : 'Select';
+      all.style.display = del.style.display = on ? '' : 'none';
+      boxes().forEach(b => { b.style.display = on ? '' : 'none'; b.checked = false; });
+      document.querySelectorAll('.plan-card-actions').forEach(a => a.style.display = on ? 'none' : '');
+      refresh();
+    });
+    all.addEventListener('click', () => { boxes().forEach(b => { if (b.closest('.plan-card').style.display !== 'none') b.checked = true; }); refresh(); });
+    document.addEventListener('change', e => { if (e.target.classList.contains('plan-select')) refresh(); });
+    del.addEventListener('click', async () => {
+      const ids = boxes().filter(b => b.checked).map(b => b.dataset.id);
+      if (!ids.length || !confirm(`Delete ${ids.length} plan${ids.length > 1 ? 's' : ''}?`)) return;
+      del.disabled = true;
+      await Promise.all(ids.map(id => fetch(`/meal_plan/${id}/delete`, { method: 'POST' })));
+      window.location.reload();
+    });
+  })();
 
   // Simple search filter
   document.getElementById("mealPlanSearch").addEventListener("keyup", function () {
