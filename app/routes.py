@@ -2428,6 +2428,7 @@ def meals_week_add():
         payload['meal_id'] = request.form.get('meal_id')
     else:
         payload['name'] = new_name
+        payload['save'] = request.form.get('save') == '1'
     try:
         res = requests.post(f"{API_BASE_URL}/meals/schedule", timeout=15, headers={'Authorization': f"Bearer {g.access_token}"},
                             json=payload)
@@ -2437,7 +2438,7 @@ def meals_week_add():
         return fail(res.json().get('error', 'Could not add that meal.'))
     if wants_json:
         return jsonify({'title': res.json().get('title'), 'label': res.json().get('label'),
-                        'created': res.json().get('created', False)}), 201
+                        'created': res.json().get('created', False), 'one_off': res.json().get('one_off', False)}), 201
     return redirect(_week_url(start))
 
 
@@ -2469,7 +2470,8 @@ def meals_week_add_side(row_id):
         return jsonify({'error': "Type a side dish or pick one from the list."}), 400
     try:
         res = requests.post(f"{API_BASE_URL}/meals/schedule/{row_id}/sides", headers=_api_headers(), timeout=15,
-                            json={'meal_id': request.form.get('meal_id')} if request.form.get('meal_id') else {'name': new_name})
+                            json={'meal_id': request.form.get('meal_id')} if request.form.get('meal_id')
+                            else {'name': new_name, 'save': request.form.get('save') == '1'})
         body = res.json()
     except (requests.RequestException, ValueError):
         return jsonify({'error': "Could not add that side right now."}), 502
