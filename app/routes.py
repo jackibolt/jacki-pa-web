@@ -2420,18 +2420,24 @@ def meals_week_add():
         clear_and_flash(message, "error")
         return redirect(_week_url(start))
 
-    if not request.form.get('meal_id'):
-        return fail("Pick a meal from the list.")
+    new_name = request.form.get('new_name', '').strip()
+    if not request.form.get('meal_id') and not new_name:
+        return fail("Type a meal name or pick one from the list.")
+    payload = {'date': request.form.get('date'), 'slot': slot, 'label': label}
+    if request.form.get('meal_id'):
+        payload['meal_id'] = request.form.get('meal_id')
+    else:
+        payload['name'] = new_name
     try:
         res = requests.post(f"{API_BASE_URL}/meals/schedule", timeout=15, headers={'Authorization': f"Bearer {g.access_token}"},
-                            json={'date': request.form.get('date'), 'meal_id': request.form.get('meal_id'),
-                                  'slot': slot, 'label': label})
+                            json=payload)
     except requests.RequestException:
         return fail("Could not add that meal right now.", 502)
     if res.status_code != 201:
         return fail(res.json().get('error', 'Could not add that meal.'))
     if wants_json:
-        return jsonify({'title': res.json().get('title'), 'label': res.json().get('label')}), 201
+        return jsonify({'title': res.json().get('title'), 'label': res.json().get('label'),
+                        'created': res.json().get('created', False)}), 201
     return redirect(_week_url(start))
 
 
@@ -2458,11 +2464,12 @@ def _api_headers():
 @routes.route('/meals/week/side/<int:row_id>', methods=['POST'])
 @login_required
 def meals_week_add_side(row_id):
-    if not request.form.get('meal_id'):
-        return jsonify({'error': "Pick a meal from the list."}), 400
+    new_name = request.form.get('new_name', '').strip()
+    if not request.form.get('meal_id') and not new_name:
+        return jsonify({'error': "Type a side dish or pick one from the list."}), 400
     try:
         res = requests.post(f"{API_BASE_URL}/meals/schedule/{row_id}/sides", headers=_api_headers(), timeout=15,
-                            json={'meal_id': request.form.get('meal_id')})
+                            json={'meal_id': request.form.get('meal_id')} if request.form.get('meal_id') else {'name': new_name})
         body = res.json()
     except (requests.RequestException, ValueError):
         return jsonify({'error': "Could not add that side right now."}), 502
@@ -2552,10 +2559,11 @@ def meals_week_apply():
     days = [{'iso': (start + timedelta(days=n)).isoformat(), 'label': (start + timedelta(days=n)).strftime('%a'),
              'text': (start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
     proposed = [{'meal_id': i['meal_id'], 'title': i['title'], 'slot': i['slot'] or 'Dinner', 'label': i.get('label') or '',
-                 'sides': i.get('sides') or [], 'day': days[i['day_offset']]['iso']}
+                 'sides': i.get('sides') or [], 'has_ingredients': i.get('has_ingredients'), 'day': days[i['day_offset']]['iso']}
                 for i in tpl.get('items', []) if 0 <= i['day_offset'] < 7]
     existing_rows = [{'id': e['id'], 'meal_id': e['meal_id'], 'title': e['title'], 'slot': e.get('meal_type') or 'Dinner',
-                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or []} for e in existing]
+                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or [],
+                      'has_ingredients': e.get('has_ingredients')} for e in existing]
     return render_template('meals_week_apply.html', tpl_name=tpl['name'], days=days, start=start.isoformat(),
                            proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS, mode='week',
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}")
@@ -2588,9 +2596,11 @@ def meals_week_pick():
     existing = [i for i in (sres.json().get('items', []) if sres.status_code == 200 else []) if i['type'] == 'meal']
     days = [{'iso': (start + timedelta(days=n)).isoformat(), 'label': (start + timedelta(days=n)).strftime('%a'),
              'text': (start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
-    proposed = [{'meal_id': m['id'], 'title': m['title'], 'slot': slot, 'label': '', 'sides': [], 'day': ''} for m in picks]
+    proposed = [{'meal_id': m['id'], 'title': m['title'], 'slot': slot, 'label': '', 'sides': [], 'day': '',
+                 'has_ingredients': m.get('has_ingredients')} for m in picks]
     existing_rows = [{'id': e['id'], 'meal_id': e['meal_id'], 'title': e['title'], 'slot': e.get('meal_type') or 'Dinner',
-                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or []} for e in existing]
+                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or [],
+                      'has_ingredients': e.get('has_ingredients')} for e in existing]
     return render_template('meals_week_apply.html', tpl_name='Random picks', days=days, start=start.isoformat(),
                            proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS, mode='pick',
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}")
