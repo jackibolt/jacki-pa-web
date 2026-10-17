@@ -37,9 +37,9 @@
           <div style="flex: none; width: 92px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: {{ tone[1] if day.is_today else tone[0] }};">{{ row.title if loop.first else '' }}</div>
           <div style="flex: 1; min-width: 0;">
             <a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="font-size: 15px; color: inherit; text-decoration: none;">{{ d.title }}{% if d.label %} <span style="font-size: 11px; opacity: .6; border: 1px solid currentColor; border-radius: 8px; padding: 0 6px; margin-left: 4px; white-space: nowrap;">{{ d.label }}</span>{% endif %}</a>
-            <div class="wk-sides" data-row="{{ d.id }}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; font-size: 13px; opacity: .85;">
+            <div class="wk-sides" data-row="{{ d.id }}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 3px;">
               {% for sd in d.sides %}
-              <span class="wk-side" data-meal="{{ sd.meal_id }}">+ <a href="{{ url_for('routes.meal_detail', meal_id=sd.meal_id) }}" style="color: inherit; text-decoration: none;">{{ sd.title }}</a><button type="button" class="wk-side-x wk-x" title="Remove {{ sd.title }}" aria-label="Remove side {{ sd.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 3px;">×</button></span>
+              <span class="wk-side" data-meal="{{ sd.meal_id }}" style="display: inline-flex; align-items: center; gap: 2px; padding: 1px 4px 1px 10px; border-radius: 999px; font-size: 12px; background: {{ 'rgba(245,240,232,.16)' if day.is_today else '#eaf3ed' }}; color: {{ '#f5f0e8' if day.is_today else '#2f5a43' }};"><a href="{{ url_for('routes.meal_detail', meal_id=sd.meal_id) }}" style="color: inherit; text-decoration: none;">{{ sd.title }}</a><button type="button" class="wk-side-x wk-x" title="Remove {{ sd.title }}" aria-label="Remove side {{ sd.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 5px;">×</button></span>
               {% endfor %}
               <button type="button" class="wk-side-add" data-row="{{ d.id }}" data-title="{{ d.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 12px; opacity: .4; padding: 0;">+ side</button>
             </div>
@@ -71,6 +71,9 @@
     <h2 id="wk-title" style="margin: 0 0 8px; font-size: 18px;">Add a meal</h2>
     <datalist id="wk-meals">
       {% for m in options %}<option value="{{ m.name }}" data-id="{{ m.id }}"></option>{% endfor %}
+    </datalist>
+    <datalist id="wk-sides">
+      {% for m in side_options %}<option value="{{ m.name }}" data-id="{{ m.id }}"></option>{% endfor %}
     </datalist>
     <datalist id="wk-tags">
       {% for t in tags %}<option value="{{ t }}"></option>{% endfor %}
@@ -163,7 +166,8 @@
 
   <dialog id="wk-side-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 380px);">
     <h2 id="wk-side-title" style="margin: 0 0 8px; font-size: 18px;">Add a side</h2>
-    <input type="text" id="wk-side-input" data-suggest="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
+    <input type="text" id="wk-side-input" data-suggest="wk-sides" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
+    {% if not side_options %}<div style="font-size: 13px; color: #7a8f82; margin-top: 6px;">No meals are tagged as side dishes yet. Mark a meal as a side dish to see it here.</div>{% endif %}
     <div id="wk-side-err" style="min-height: 16px; font-size: 13px; color: #b03a4e; margin-top: 4px;"></div>
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
       <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Done</button>
@@ -245,7 +249,7 @@
     dlg.addEventListener('close', function () { if (added) { window.location.reload(); } });
     function mealId(name) {
       var id = null;
-      document.querySelectorAll('#wk-meals option').forEach(function (o) {
+      document.querySelectorAll('#wk-sides option').forEach(function (o) {
         if (id === null && o.value.toLowerCase() === name.trim().toLowerCase()) { id = o.dataset.id; }
       });
       return id;
@@ -260,7 +264,7 @@
     function add() {
       var id = mealId(input.value);
       err.style.color = '#b03a4e';
-      if (!id) { err.textContent = 'Pick a meal from the list.'; return; }
+      if (!id) { err.textContent = 'Pick a side dish from the list.'; return; }
       var fd = new FormData(); fd.append('meal_id', id);
       fetch('/meals/week/side/' + row, {method: 'POST', body: fd, headers: {'X-Requested-With': 'fetch'}})
         .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); })
