@@ -45,6 +45,15 @@
       if (text !== undefined) { e.textContent = text; }
       return e;
     }
+    function nogroc(id, title) {
+      var a = document.createElement('a');
+      a.href = '/meals/' + id; a.className = 'wk-nogroc';
+      a.title = title + " has no ingredients listed, so it won't be on the grocery list. Click to add some.";
+      a.setAttribute('aria-label', title + " has no ingredients and won't be on the grocery list");
+      a.style.cssText = 'display:inline-flex;vertical-align:-2px;margin-left:6px;color:#b7791f;opacity:.9;';
+      a.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H6"/><path d="M3 21 21 3" stroke-width="2.2"/></svg>';
+      return a;
+    }
     function tag(label) {
       return label ? ' (' + label + ')' : '';
     }
@@ -89,8 +98,15 @@
           row.appendChild(el('div', 'flex:none;width:84px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:' + (tones[r.slot] || '#7a8f82') + ';', showSlot ? r.slot : ''));
           var main = el('div', 'flex:1;min-width:0;font-size:15px;');
           main.appendChild(document.createTextNode(r.title + tag(r.label)));
-          var sd = (r.sides || []).map(function (x) { return x.title; });
-          if (sd.length) { main.appendChild(el('div', 'font-size:13px;opacity:.8;', '+ ' + sd.join(', '))); }
+          if (r.has_ingredients === false) { main.appendChild(nogroc(r.meal_id, r.title)); }
+          if ((r.sides || []).length) {
+            var sl = el('div', 'font-size:13px;opacity:.85;');
+            r.sides.forEach(function (x, n) {
+              sl.appendChild(document.createTextNode((n ? ', ' : '+ ') + x.title));
+              if (x.has_ingredients === false) { sl.appendChild(nogroc(x.meal_id, x.title)); }
+            });
+            main.appendChild(sl);
+          }
           if (it.kind === 'new') {
             var b = el('span', 'margin-left:6px;border:1px dashed #2f8f5b;border-radius:6px;padding:0 5px;font-size:10px;font-weight:700;', 'NEW');
             main.appendChild(b);
@@ -141,7 +157,7 @@
         var skip = D.proposed.concat(D.existing).map(function (x) { return x.meal_id; }).join(',');
         fetch('/meals/week/pick/one?slot=' + encodeURIComponent(r.slot) + '&exclude=' + skip, {headers: {'X-Requested-With': 'fetch'}})
           .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); })
-          .then(function (o) { if (o.ok) { r.meal_id = o.j.id; r.title = o.j.title; r.sides = []; render(); } else { err.textContent = o.j.error || 'No other meals to pick from.'; } })
+          .then(function (o) { if (o.ok) { r.meal_id = o.j.id; r.title = o.j.title; r.sides = []; r.has_ingredients = o.j.has_ingredients; render(); } else { err.textContent = o.j.error || 'No other meals to pick from.'; } })
           .catch(function () { err.textContent = 'Could not re-roll right now.'; });
       });
       return b;
