@@ -87,6 +87,7 @@
       <input type="hidden" name="slot" value="{{ kind }}">
       <input type="hidden" name="meal_id" class="wk-meal-id">
       <input type="hidden" name="new_name" class="wk-new-name">
+      <input type="hidden" name="save" class="wk-save">
       <div style="display: flex; align-items: center; gap: 12px;">
         <div style="flex: 1; min-width: 0;">
           <div style="font-size: 15px; font-weight: 600;">{{ kind }}</div>
@@ -170,7 +171,7 @@
   <dialog id="wk-side-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 380px);">
     <h2 id="wk-side-title" style="margin: 0 0 8px; font-size: 18px;">Add a side</h2>
     <input type="text" id="wk-side-input" data-suggest="wk-sides" data-create="side dish" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
-    {% if not side_options %}<div style="font-size: 13px; color: #7a8f82; margin-top: 6px;">No meals are tagged as side dishes yet. Mark a meal as a side dish to see it here, or just type a new one.</div>{% endif %}
+    {% if not side_options %}<div style="font-size: 13px; color: #7a8f82; margin-top: 6px;">No meals are tagged as side dishes yet. Mark a meal as a side dish to see it here, or type a new one.</div>{% endif %}
     <div id="wk-side-err" style="min-height: 16px; font-size: 13px; color: #b03a4e; margin-top: 4px;"></div>
     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
       <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Done</button>
@@ -219,6 +220,10 @@
         rows.forEach(function (o) { o.querySelector('.wk-entry').style.display = 'none'; });
         if (!open) { r.querySelector('.wk-entry').style.display = 'block'; r.querySelector('.wk-meal').focus(); }
       });
+      r.querySelector('.wk-meal').addEventListener('suggest-create', function (e) {
+        this.dataset.save = e.detail.save ? '1' : '';
+        r.requestSubmit();
+      });
       r.addEventListener('submit', function (e) {
         var input = r.querySelector('.wk-meal'), id = null;
         document.querySelectorAll('#wk-meals option').forEach(function (o) {
@@ -228,6 +233,8 @@
         if (!id && !typed) { e.preventDefault(); r.querySelector('.wk-err').textContent = 'Type a meal name or pick one.'; return; }
         r.querySelector('.wk-meal-id').value = id || '';
         r.querySelector('.wk-new-name').value = id ? '' : typed;
+        r.querySelector('.wk-save').value = !id && input.dataset.save === '1' ? '1' : '';
+        input.dataset.save = '';
         e.preventDefault();
         var err = r.querySelector('.wk-err'), have = r.querySelector('.wk-have'), tag = r.querySelector('[name=tag]');
         err.textContent = '';
@@ -235,7 +242,7 @@
           .then(function (res) { return res.json().then(function (data) { return {ok: res.ok, data: data}; }); })
           .then(function (out) {
             if (!out.ok) { err.textContent = out.data.error || 'Could not add that meal.'; return; }
-            var added = out.data.title + (out.data.label ? ' (' + out.data.label + ')' : '') + (out.data.created ? ' (new)' : '');
+            var added = out.data.title + (out.data.label ? ' (' + out.data.label + ')' : '') + (out.data.created ? (out.data.one_off ? ' (this once)' : ' (saved to your meals)') : '');
             have.textContent = have.textContent ? have.textContent + ', ' + added : added;
             input.value = ''; tag.value = '';
             r.querySelector('.wk-entry').style.display = 'none';
@@ -271,16 +278,18 @@
       err.style.color = '#b03a4e';
       var typed = input.value.trim();
       if (!id && !typed) { err.textContent = 'Type a side dish or pick one.'; return; }
-      var fd = new FormData(); if (id) { fd.append('meal_id', id); } else { fd.append('new_name', typed); }
+      var fd = new FormData(); if (id) { fd.append('meal_id', id); } else { fd.append('new_name', typed); if (input.dataset.save === '1') { fd.append('save', '1'); } }
+      input.dataset.save = '';
       fetch('/meals/week/side/' + row, {method: 'POST', body: fd, headers: {'X-Requested-With': 'fetch'}})
         .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); })
         .then(function (o) {
           if (!o.ok) { err.style.color = '#b03a4e'; err.textContent = o.j.error || 'Could not add that side.'; return; }
-          added = true; err.style.color = '#2f8f5b'; err.textContent = 'Added ' + o.j.title + (o.j.created ? ' as a new side dish (no ingredients yet)' : '') + '. Add another or press Done.'; input.value = '';
+          added = true; err.style.color = '#2f8f5b'; err.textContent = 'Added ' + o.j.title + (o.j.created ? (o.j.one_off ? ' for this dish only' : ' and saved it to your meals') : '') + '. Add another or press Done.'; input.value = '';
         })
         .catch(function () { err.textContent = 'Could not add that side right now.'; });
     }
     document.getElementById('wk-side-go').addEventListener('click', add);
+    input.addEventListener('suggest-create', function (e) { input.dataset.save = e.detail.save ? '1' : ''; add(); });
     input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
     document.querySelectorAll('.wk-side-x').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -307,6 +316,10 @@
     }
     function hide() { box.style.display = 'none'; active = -1; }
     function choose(i) { current.value = shown[i]; hide(); current.dispatchEvent(new Event('change', {bubbles: true})); }
+    function createWith(save) {
+      var input = current; hide();
+      input.dispatchEvent(new CustomEvent('suggest-create', {detail: {save: save}}));
+    }
     function paint() {
       Array.prototype.forEach.call(box.children, function (el, i) {
         el.style.background = i === active ? '#e3f0e8' : 'transparent';
@@ -336,19 +349,22 @@
         box.appendChild(el);
       });
       if (canCreate) {
-        var add = document.createElement('div');
-        add.setAttribute('role', 'option');
-        add.style.cssText = 'padding:8px 10px;border-radius:7px;cursor:pointer;line-height:1.25;color:#2f8f5b;' + (shown.length ? 'border-top:1px solid #e3eee7;margin-top:4px;' : '');
-        add.textContent = '+ Add “' + input.value.trim() + '” as a new ' + input.dataset.create;
-        add.addEventListener('mousedown', function (e) { e.preventDefault(); hide(); });
-        add.addEventListener('mousemove', function () { active = shown.length; paint(); });
-        box.appendChild(add);
+        [[false, 'Add \u201c' + input.value.trim() + '\u201d for this day only'], [true, 'Add \u201c' + input.value.trim() + '\u201d and save to my meals']].forEach(function (c, n) {
+          var add = document.createElement('div');
+          add.setAttribute('role', 'option');
+          add.style.cssText = 'padding:8px 10px;border-radius:7px;cursor:pointer;line-height:1.25;color:#2f8f5b;' + (n === 0 && shown.length ? 'border-top:1px solid #e3eee7;margin-top:4px;' : '');
+          add.textContent = '+ ' + c[1];
+          add.addEventListener('mousedown', function (e) { e.preventDefault(); createWith(c[0]); });
+          add.addEventListener('mousemove', function () { active = shown.length + n; paint(); });
+          box.appendChild(add);
+        });
       }
-      var rows = shown.length + (canCreate ? 1 : 0);
+      var rows = shown.length + (canCreate ? 2 : 0);
       var r = input.getBoundingClientRect();
       var below = window.innerHeight - r.bottom, h = Math.min(232, rows * 36 + 8);
       box.style.left = r.left + 'px'; box.style.width = r.width + 'px';
-      box.style.top = (below >= h || below >= r.top ? r.bottom + 4 : r.top - h - 4) + 'px';
+      // Prefer opening above the field so the dialog's Add button stays clickable
+      box.style.top = (r.top >= h + 8 ? r.top - h - 4 : r.bottom + 4) + 'px';
       var host = input.closest('dialog') || document.body;
       if (box.parentNode !== host) { host.appendChild(box); }
       box.style.display = 'block'; active = -1; box.scrollTop = 0;
@@ -356,7 +372,7 @@
 
     document.querySelectorAll('input[data-suggest]').forEach(function (input) {
       input.setAttribute('autocomplete', 'off');
-      input.addEventListener('input', function () { show(input); });
+      input.addEventListener('input', function () { input.dataset.save = ''; show(input); });
       input.addEventListener('focus', function () { show(input); });
       input.addEventListener('blur', function () { setTimeout(function () { if (current === input) { hide(); } }, 0); });
       input.addEventListener('keydown', function (e) {
@@ -368,6 +384,8 @@
           active = (active + (e.key === 'ArrowDown' ? 1 : -1) + total) % total; paint();
         } else if (e.key === 'Enter' && open && active >= 0 && active < shown.length) {
           e.preventDefault(); e.stopImmediatePropagation(); choose(active);
+        } else if (e.key === 'Enter' && open && active >= shown.length) {
+          e.preventDefault(); e.stopImmediatePropagation(); createWith(active === shown.length + 1);
         } else if (e.key === 'Enter' && open) {
           hide();
         } else if (e.key === 'Escape' && open) {
