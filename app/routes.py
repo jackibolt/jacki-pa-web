@@ -2397,7 +2397,9 @@ def meals_week():
                      'is_today': day == today, 'rows': [r for r in rows if r['dishes']], 'filled': filled})
     tags = sorted({i['label'] for i in meal_items if i.get('label')})
     templates_list = _load_templates()
-    return render_template('meals_week.html', days=days, week_templates=templates_list, has_meals=bool(meal_items), options=options, slots=WEEK_SLOTS, tags=tags,
+    # Side picker: only meals tagged as side dishes (all meals if the API doesn't send that flag yet)
+    side_options = [m for m in options if m.get('is_side_dish')] if any('is_side_dish' in m for m in options) else options
+    return render_template('meals_week.html', side_options=side_options, days=days, week_templates=templates_list, has_meals=bool(meal_items), options=options, slots=WEEK_SLOTS, tags=tags,
                            start=start.isoformat(), prev_start=(start - timedelta(days=7)).isoformat(),
                            next_start=(start + timedelta(days=7)).isoformat(), is_this_week=(start == _week_start(today)),
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}",
