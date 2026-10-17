@@ -207,6 +207,8 @@
   </div>
 
   <style>
+    .plan-day { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: rgba(245,240,232,0.55); margin-top: 6px; }
+    .plans-section:not(.open) .plans-block-hdr { margin-bottom: 0; }
     .gx-actions { display:flex; gap:8px; flex-wrap:wrap; margin: 4px 0 12px; }
     .gx-panel { background:#fff; border:1px solid #d5e4da; border-radius:14px; padding:14px; margin-bottom:14px; }
     .gx-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:8px 0; font-size:13px; color:#4a6556; }
@@ -244,10 +246,10 @@
 
     <!-- PLANS IN THIS LIST - Will be populated by JavaScript or Jinja2 -->
     {% if meal_plan_ids or meal_plan_id %}
-    <div class="plans-section open" id="plansSection">
+    <div class="plans-section" id="plansSection">
       <div class="plans-block">
         <div class="plans-block-hdr" onclick="this.closest('.plans-section').classList.toggle('open')">
-          <span class="plans-block-title">Meals in this list</span>
+          <span class="plans-block-title">Meals in this list{% if meal_plan_ids %} · {{ meal_plan_ids | length }}{% endif %}</span>
           <span class="plans-block-chevron">▼</span>
         </div>
         <div class="plans-list" id="plansList">
@@ -284,7 +286,8 @@
   const groceryList = {%- if grocery_list %} {{ grocery_list | tojson }} {%- else %} {} {%- endif %};
   const mealPlanIds = {{ meal_plan_ids | tojson if meal_plan_ids else '[]' }};
   const mealPlanId = {{ meal_plan_id | tojson if meal_plan_id else 'null' }};
-  const mealPlanName = {{ meal_plan_name | tojson if meal_plan_name else '"Meal Plan"' }};  const mealPlanNames = {{ meal_plan_names | tojson if meal_plan_names else '{}' }};
+  const mealPlanName = {{ meal_plan_name | tojson if meal_plan_name else '"Meal Plan"' }};  const mealDates = {{ meal_dates | tojson if meal_dates else '{}' }};
+  const mealPlanNames = {{ meal_plan_names | tojson if meal_plan_names else '{}' }};
   const scratchItemsByPlan = {{ scratch_items_by_plan | tojson if scratch_items_by_plan else '{}' }};
   
   console.log('💾 groceryList loaded:', Object.keys(groceryList).length, 'categories');
@@ -466,7 +469,16 @@
     // Get meal plan data from server
     if (mealPlanIds && mealPlanIds.length > 0) {
       // Multiple meal plans
+      let lastDay = null;
       mealPlanIds.forEach(id => {
+        const day = mealDates[id] || '';
+        if (day !== lastDay) {
+          lastDay = day;
+          const head = document.createElement('div');
+          head.className = 'plan-day';
+          head.textContent = day ? new Date(day + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' }) : 'Unscheduled';
+          plansList.appendChild(head);
+        }
         // Count items from this plan
         let itemCount = 0;
         document.querySelectorAll('.g-item[data-plan-ids]').forEach(item => {

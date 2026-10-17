@@ -1225,18 +1225,16 @@ def grocery_list():
     recurring = rec_res.json().get('items', []) if rec_res.status_code == 200 else []
 
     # Dishes that have items on the list
-    meal_names, items_by_meal, meal_ids = {}, {}, []
+    meal_names, meal_dates, items_by_meal, meal_ids = {}, {}, {}, []
     meals_res = requests.get(f'{API_BASE_URL}/grocery/meals', headers=headers)
     if meals_res.status_code == 200:
         for m in meals_res.json().get('meals', []):
-            day = ''
-            if m.get('date'):
-                day = ' · ' + datetime.strptime(m['date'], '%Y-%m-%d').strftime('%a %b %-d')
-            meal_names[m['id']] = f"{m['name']}{day}"
+            meal_names[m['id']] = m['name']
+            meal_dates[m['id']] = m.get('date') or ''
             items_by_meal[m['id']] = m['item_ids']
             meal_ids.append(m['id'])
 
-    page = dict(meal_plan_ids=meal_ids, meal_plan_id=None, meal_plan_name=None, meal_plan_names=meal_names,
+    page = dict(meal_plan_ids=meal_ids, meal_plan_id=None, meal_plan_name=None, meal_plan_names=meal_names, meal_dates=meal_dates,
                 scratch_items_by_plan=items_by_meal, recurring=recurring, shop_open=bool(request.args.get('shop')),
                 back_href=url_for('routes.meal_plans'), random_subhead=random_subheader())
 
