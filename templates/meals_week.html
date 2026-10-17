@@ -17,6 +17,14 @@
     </div>
   </div>
 
+  {% if missing %}
+  <div style="display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; background: #fbf3e2; border: 1px solid #ecd9ae; border-radius: 12px; padding: 10px 14px; margin-bottom: 14px; color: #6b4a0f;">
+    <span style="display: inline-flex; color: #b7791f;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.6 12.2a1 1 0 0 0 1 .8h8.8a1 1 0 0 0 1-.8L20 7H6"/><path d="M3 21 21 3" stroke-width="2.2"/></svg></span>
+    <div style="flex: 1 1 220px; font-size: 14px;"><strong>{{ missing|length }} {{ 'dish' if missing|length == 1 else 'dishes' }} this week {{ 'has' if missing|length == 1 else 'have' }} no ingredients</strong>, so {{ 'it' if missing|length == 1 else 'they' }} won't be on your grocery list.</div>
+    <button type="button" id="wk-ing-btn" class="btn btn-secondary" style="width: auto; padding: 6px 14px;">Add ingredients</button>
+  </div>
+  {% endif %}
+
   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;">
     <button type="button" id="wk-pick-btn" class="btn btn-primary" style="width: auto;">Add a standard week</button>
     <button type="button" id="wk-rand-btn" class="btn btn-secondary" style="width: auto;">Pick meals for me</button>
@@ -168,6 +176,32 @@
     </form>
   </dialog>
 
+  {% if missing %}
+  <dialog id="wk-ing-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(94vw, 520px); max-height: 86vh;">
+    <h2 style="margin: 0 0 4px; font-size: 18px;">Add ingredients</h2>
+    <div style="font-size: 13px; color: #7a8f82; margin-bottom: 8px;">Type an ingredient and press Enter (commas work too). New ingredients are filed under Other.</div>
+    <datalist id="wk-ings">{% for n in ingredient_names %}<option value="{{ n }}"></option>{% endfor %}</datalist>
+    {% for m in missing %}
+    <div class="wk-ing-row" data-meal="{{ m.id }}" style="padding: 10px 0; border-top: 1px solid #e3eee7;">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <a href="{{ url_for('routes.meal_detail', meal_id=m.id) }}" style="flex: 1 1 auto; min-width: 0; font-weight: 600; color: inherit; text-decoration: none;">{{ m.title }}</a>
+        <span class="wk-ing-state" style="font-size: 13px; color: #2f8f5b;"></span>
+      </div>
+      <div class="wk-ing-chips" style="display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px;"></div>
+      <div class="wk-ing-form" style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+        <input type="text" class="wk-ing-input" data-suggest="wk-ings" placeholder="Add an ingredient…" autocomplete="off" style="flex: 1 1 160px; min-width: 0; box-sizing: border-box; padding: 7px 8px;">
+        <button type="button" class="btn btn-primary wk-ing-save" style="width: auto; padding: 6px 14px;">Save</button>
+        <button type="button" class="btn btn-secondary wk-ing-none" style="width: auto; padding: 6px 12px;" title="Leftovers, eating out, etc.">Needs none</button>
+      </div>
+      <div class="wk-ing-err" style="min-height: 0; font-size: 13px; color: #b03a4e;"></div>
+    </div>
+    {% endfor %}
+    <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+      <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Done</button>
+    </div>
+  </dialog>
+  {% endif %}
+
   <dialog id="wk-side-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 380px);">
     <h2 id="wk-side-title" style="margin: 0 0 8px; font-size: 18px;">Add a side</h2>
     <input type="text" id="wk-side-input" data-suggest="wk-sides" data-create="side dish" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
@@ -183,7 +217,7 @@
 
 <script>
   (function () {
-    [['wk-pick-btn', 'wk-pick-dialog'], ['wk-rand-btn', 'wk-rand-dialog'], ['wk-save-btn', 'wk-save-dialog']].forEach(function (p) {
+    [['wk-ing-btn', 'wk-ing-dialog'], ['wk-pick-btn', 'wk-pick-dialog'], ['wk-rand-btn', 'wk-rand-dialog'], ['wk-save-btn', 'wk-save-dialog']].forEach(function (p) {
       var b = document.getElementById(p[0]), d = document.getElementById(p[1]);
       if (b && d) { b.addEventListener('click', function () { d.showModal(); }); }
     });
@@ -315,7 +349,11 @@
       return Array.prototype.map.call(document.querySelectorAll('#' + input.dataset.suggest + ' option'), function (o) { return o.value; });
     }
     function hide() { box.style.display = 'none'; active = -1; }
-    function choose(i) { current.value = shown[i]; hide(); current.dispatchEvent(new Event('change', {bubbles: true})); }
+    function choose(i) {
+      var input = current; input.value = shown[i]; hide();
+      input.dispatchEvent(new Event('change', {bubbles: true}));
+      input.dispatchEvent(new CustomEvent('suggest-pick'));
+    }
     function createWith(save) {
       var input = current; hide();
       input.dispatchEvent(new CustomEvent('suggest-create', {detail: {save: save}}));
@@ -394,6 +432,63 @@
       }, true);
     });
     document.querySelectorAll('dialog').forEach(function (d) { d.addEventListener('close', hide); });
+  })();
+</script>
+
+
+<script>
+  (function () {
+    var dlg = document.getElementById('wk-ing-dialog');
+    if (!dlg) { return; }
+    var changed = false;
+    dlg.addEventListener('close', function () { if (changed) { window.location.reload(); } });
+    function post(meal, body) {
+      return fetch('/meals/week/ingredients/' + meal, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'fetch'}, body: JSON.stringify(body)})
+        .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); });
+    }
+    dlg.querySelectorAll('.wk-ing-row').forEach(function (row) {
+      var chips = [], box = row.querySelector('.wk-ing-chips'), input = row.querySelector('.wk-ing-input'),
+          err = row.querySelector('.wk-ing-err'), state = row.querySelector('.wk-ing-state');
+      function draw() {
+        box.innerHTML = '';
+        chips.forEach(function (name, i) {
+          var c = document.createElement('span');
+          c.style.cssText = 'display:inline-flex;align-items:center;padding:1px 4px 1px 10px;border-radius:999px;font-size:13px;background:#eaf3ed;color:#2f5a43;';
+          c.appendChild(document.createTextNode(name));
+          var x = document.createElement('button'); x.type = 'button'; x.textContent = '\u00d7'; x.setAttribute('aria-label', 'Remove ' + name);
+          x.style.cssText = 'background:none;border:0;color:inherit;cursor:pointer;font-size:14px;line-height:1;padding:0 5px;opacity:.6;';
+          x.addEventListener('click', function () { chips.splice(i, 1); draw(); });
+          c.appendChild(x); box.appendChild(c);
+        });
+      }
+      function take() {
+        input.value.split(',').forEach(function (part) {
+          var n = part.trim();
+          if (n && !chips.some(function (c) { return c.toLowerCase() === n.toLowerCase(); })) { chips.push(n); }
+        });
+        input.value = ''; draw();
+      }
+      function done(text) {
+        changed = true; state.textContent = text;
+        row.querySelectorAll('input,button.btn').forEach(function (el) { el.disabled = true; });
+        row.style.opacity = '.65';
+      }
+      input.addEventListener('suggest-pick', take);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); take(); } });
+      row.querySelector('.wk-ing-save').addEventListener('click', function () {
+        take(); err.textContent = '';
+        if (!chips.length) { err.textContent = 'Add at least one ingredient, or choose Needs none.'; return; }
+        post(row.dataset.meal, {ingredients: chips}).then(function (o) {
+          if (o.ok) { done('Saved \u2713'); } else { err.textContent = o.j.error || 'Could not save that.'; }
+        }).catch(function () { err.textContent = 'Could not save that right now.'; });
+      });
+      row.querySelector('.wk-ing-none').addEventListener('click', function () {
+        err.textContent = '';
+        post(row.dataset.meal, {none_needed: true}).then(function (o) {
+          if (o.ok) { done('No ingredients needed \u2713'); } else { err.textContent = o.j.error || 'Could not save that.'; }
+        }).catch(function () { err.textContent = 'Could not save that right now.'; });
+      });
+    });
   })();
 </script>
 
