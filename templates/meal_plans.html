@@ -10,7 +10,7 @@
     </div>
     <div style="display: flex; gap: 12px;">
       <a class="btn-create" href="{{ url_for('routes.grocery_list') }}" style="background: var(--green); color: var(--cream);">📋 Grocery List</a>
-      <a class="btn-create" href="{{ url_for('routes.new_meal_plan') }}">+ New Plan</a>
+      <a class="btn-create" href="{{ url_for('routes.meals_week') }}">Week view</a>
     </div>
   </div>
 
@@ -45,7 +45,6 @@
         <div style="font-size: 13px; color: #4a6556;">{{ plan.meals_count }} meals · Started {{ plan.created_at }}</div>
       </div>
       <div style="display: flex; gap: 8px;">
-        <a class="btn-plan-view" href="{{ url_for('routes.meal_plan_result', meal_plan_id=plan.id) }}">Continue</a>
         <form action="{{ url_for('routes.delete_meal_plan', meal_plan_id=plan.id) }}" method="post" style="display: inline;">
           <input type="hidden" name="_method" value="DELETE">
           <button type="submit" class="btn-plan-delete" onclick="return confirm('Delete this draft?')">Delete</button>

@@ -1084,330 +1084,6 @@ def get_meal_plan_groceries(meal_plan_id):
         return jsonify({"success": False, "error": str(e), "groceries": []}), 500
 
 
-## ROUTE FOR A NEW MEAL PLAN PAGE ✅
-@routes.route('/meal-plan/new', methods=['GET', 'POST'])
-@login_required
-def new_meal_plan():
-
-    session.pop('_flashes', None)
-
-    headers = {'Authorization': f"Bearer {g.access_token}"}
-
-    urls = {
-        'user_profile': f'{API_BASE_URL}/user/profile',
-        'categories': f'{API_BASE_URL}/categories',
-        'meals': f'{API_BASE_URL}/meals',
-        'tags': f'{API_BASE_URL}/meals/tags'
-    }
-
-    results = threaded_get(urls, headers=headers)
-
-    user_profile = results['user_profile']['data']
-    categories = results['categories']['data']
-    meals = results['meals']['data']
-    tags = results['tags']['data']
-
-    print(tags)
-
-    max_meals = 14
-
-    if user_profile:
-        return render_template('new_meal_plan.html', meals=meals, categories=categories, mode='new', max_meals=max_meals,
-                                tags=tags, back_href=url_for('routes.meal_plans'), random_subhead=random_subheader())    
-
-    print("⚠️ Failed to fetch meals or categories.")
-    return redirect(url_for('routes.home'))
-
-
-## ROUTE TO CREATE A NEW MEAL PLAN (API CALL) ✅
-@routes.route('/meal-plan', methods=['POST'])
-@login_required
-def create_meal_plan():
-    # Collect data from the form
-    meal_plan_name = request.form['meal_plan_name']
-    meals_quantity = int(request.form['meals_quantity'])  # Convert to int
-    
-    # Debug: log all form data
-    print("=== FORM DATA ===")
-    print(f"Form keys: {request.form.keys()}")
-    for key in request.form.keys():
-        print(f"{key}: {request.form[key]}")
-    print("================")
-    
-    # Handle categories - can be JSON or form array
-    if 'meal_categories_selected' in request.form and request.form['meal_categories_selected']:
-        meal_categories = json.loads(request.form['meal_categories_selected'])
-    else:
-        meal_categories = request.form.getlist('meal_categories[]')
-    
-    # Handle meal IDs
-    meal_ids_to_add = json.loads(request.form.get('meal_ids_to_add', '[]'))
-    
-    # Handle tags - can be JSON or form array
-    if 'meal_tags_selected' in request.form and request.form['meal_tags_selected']:
-        tags = json.loads(request.form['meal_tags_selected'])
-    else:
-        tags = request.form.getlist('meal_tags[]')
-    
-    # Ensure the data matches what the API expects
-    meal_plan_data = {
-        'meal_plan_name': meal_plan_name,
-        'meals_quantity': meals_quantity,
-        'meal_category': meal_categories,
-        'meal_ids_to_add': meal_ids_to_add,
-        'tags': tags
-    }
-    print(f"Meal Plan Data: {meal_plan_data}")
-
-    headers = {'Authorization': f"Bearer {g.access_token}"}
-    
-    # Make the POST request to the API
-    response = requests.post(f'{API_BASE_URL}/meal_plan', json=meal_plan_data, headers=headers)
-
-    session['_flashes'] = []
-    # Handle the response from the API
-    if response.status_code == 201:
-        print("✅ Meal plan created successfully!")
-        new_id = response.json().get('meal_plan_id')
-        label = request.form.get('label', '').strip()
-        if label and new_id:
-            requests.patch(f'{API_BASE_URL}/meal_plan/{new_id}/label', json={'label': label}, headers=headers)
-        return redirect(url_for('routes.meal_plan_result', meal_plan_id=new_id))
-    elif response.status_code == 302:
-        print("⚠️ Redirected: Check if you're logged in or if data is correct.")
-        return redirect(response.headers.get('Location'))  # Redirect based on the header if there's a Location header
-    elif response.status_code == 403:
-        clear_and_flash("⚠️ Free users can create up to 2 meal plans. Please delete an existing one to create a new one.")
-        return redirect(url_for('routes.meal_plans'))
-    elif response.status_code in (400, 404):
-        print(response.text)
-        try:
-            error_message = response.json().get('error', response.text)
-        except Exception as e:
-            print("⚠️ JSON decoding failed:", e)
-            error_message = response.text
-        clear_and_flash(f"⚠️ {error_message}")
-        return redirect(url_for('routes.new_meal_plan'))
-    else:
-        print(f"⚠️ Failed to create meal plan. Status Code: {response.status_code}, Error: {response.text}")
-        return redirect(url_for('routes.meal_plans'))
-
-
-## ROUTE FOR A GENERATED MEAL PLAN RESULT ✅
-@routes.route('/meal-plan/<int:meal_plan_id>/edit')
-@login_required
-def meal_plan_result(meal_plan_id):
-
-    headers = {'Authorization': f"Bearer {g.access_token}"}
-
-    # Get the meal plan
-    meal_plan_res = requests.get(f'{API_BASE_URL}/meal_plan/{meal_plan_id}', headers=headers)
-    if meal_plan_res.status_code != 200:
-        print("Failed to fetch meal plan.")
-        return redirect(url_for('routes.meal_plans'))
-    meal_plan = meal_plan_res.json()
-    print(f"meal plan result: {meal_plan}")
-
-    # Get all meals
-    all_meals_res = requests.get(f'{API_BASE_URL}/meals', headers=headers)
-    if all_meals_res.status_code != 200:
-        print("Failed to fetch full meal list.")
-        return redirect(url_for('routes.meal_plans'))
-    all_meals = all_meals_res.json()
-
-    # Convert list of all meals to a dict keyed by ID for fast lookup
-    meals_by_id = {meal['id']: meal for meal in all_meals}
-
-    help_text = 'none'
-    for m in meal_plan.get('meals', []):
-        if m.get('source') == 'filler_repeat':
-            help_text = 'repeat'
-            break
-        elif m.get('source') == 'filler_random' or m.get('source') == 'filler_category':
-            help_text = 'random'
-            break
-
-    # Enrich each meal in the plan with full details
-    enriched_meals = []
-    for m in meal_plan.get('meals', []):
-        meal_id = m['id']
-        if meal_id in meals_by_id:
-            enriched_meal = meals_by_id[meal_id].copy()
-            enriched_meal.update({
-                'meal_plan_meal_id': m.get('meal_plan_meal_id'),
-                'order': m.get('order'),
-                'is_checked': m.get('is_checked'),
-                'side_dish': m.get('side_dish'),
-                'source': m.get('source')
-            })
-            enriched_meals.append(enriched_meal)
-        else:
-            enriched_meals.append(m)
-
-    meal_plan['meals'] = enriched_meals
-    print(f"meal plan result: {meal_plan}")
-
-
-    return render_template('meal_plan_result.html', meal_plan=meal_plan, meals=all_meals, help_text=help_text,
-                           back_href=url_for('routes.new_meal_plan'), random_subhead=random_subheader())
-
-
-## ROUTE TO UPDATE A MEAL PLAN (API CALL) ✅
-@routes.route('/meal-plan/<int:meal_plan_id>', methods=['POST'])
-@login_required
-def update_meal_plan(meal_plan_id):
-    headers = {'Authorization': f"Bearer {g.access_token}"}
-
-    # Get values from form
-    meal_ids_to_remove = json.loads(request.form['meal_ids_to_remove'])  # This will be a list of IDs
-    meals_quantity = int(request.form['meals_quantity'])
-    meal_category = request.form['meal_category']  # Assuming your API expects uppercase
-    meal_plan_tags_raw = request.form['meal_tags']  # This will be a list of tags
-    meal_ids_to_add = [int(x) for x in json.loads(request.form.get('meal_ids_to_add', '[]')) if x]
-
-    tags = [tag.lower().strip() for tag in meal_plan_tags_raw.split(',') if tag.strip()]
-
-    # Build the correct payload
-    meal_plan_data = {
-        'meal_ids_to_remove': meal_ids_to_remove,
-        'meal_ids_to_add': meal_ids_to_add,
-        'meals_quantity': meals_quantity,
-        'meal_category': meal_category,
-        'tags': tags
-    }
-
-    print(f"Updated Meal Plan Data: {meal_plan_data}")
-
-    # PUT request to API
-    response = requests.put(
-        f'{API_BASE_URL}/meal_plan/{meal_plan_id}',
-        json=meal_plan_data,
-        headers=headers
-    )
-
-    if response.status_code == 200:
-        print("✅ Meal plan updated successfully!")
-        
-        # Check if side dishes were cleared during re-edit
-        response_data = response.json()
-        if response_data.get('cleared_side_dishes'):
-            clear_and_flash("✅ Meal plan updated! Your side dishes have been preserved. Go to 'Add Side Dishes' to adjust them for any newly replaced meals.")
-        
-        return redirect(url_for('routes.meal_plan_result', meal_plan_id=meal_plan_id))
-    else:
-        print(f"⚠️ Failed to update meal plan. Status Code: {response.status_code}, Error: {response.text}")
-        clear_and_flash("Failed to update meal plan.")
-        return redirect(url_for('routes.meal_plan_result', meal_plan_id=meal_plan_id))
-
-
-## ROUTE FOR THE ADD SIDE DISHES PAGE ✅
-@routes.route('/meal-plan/<int:meal_plan_id>/add-side-dishes', methods=['GET'])
-@login_required
-def add_side_dishes_page(meal_plan_id):
-
-    user_headers = {'Authorization': f"Bearer {g.access_token}"}
-
-    user_prefs = requests.get(f"{API_BASE_URL}/user/profile" , headers=user_headers)
-    if user_prefs.status_code == 200:
-        user_profile = user_prefs.json()
-
-    headers = {'Authorization': f"Bearer {g.access_token}"}
-    # Get the specific meal plan
-    meal_plan_res = requests.get(f'{API_BASE_URL}/meal_plan/{meal_plan_id}', headers=headers)
-    if meal_plan_res.status_code != 200:
-        print("Failed to fetch meal plan.")
-        return redirect(url_for('routes.meal_plans'))
-    meal_plan = meal_plan_res.json()
-
-    # Get all meals (including possible side dishes)
-    all_meals_res = requests.get(f'{API_BASE_URL}/meals', headers=headers)
-    if all_meals_res.status_code != 200:
-        print("Failed to fetch full meal list.")
-        return redirect(url_for('routes.meal_plans'))
-    all_meals = all_meals_res.json()
-
-    # Create a dict of meals by ID
-    meals_by_id = {meal['id']: meal for meal in all_meals}
-
-    # Enrich each meal in the plan with full details
-    enriched_meals = []
-    for m in meal_plan.get('meals', []):
-        meal_id = m['id']
-        if meal_id in meals_by_id:
-            enriched_meal = meals_by_id[meal_id].copy()
-            # Preserve side_dish data from the meal plan
-            if m.get('side_dish'):
-                enriched_meal['side_dish_id'] = m['side_dish'].get('id')
-                enriched_meal['side_dish_name'] = m['side_dish'].get('name')
-            else:
-                enriched_meal['side_dish_id'] = None
-                enriched_meal['side_dish_name'] = None
-            enriched_meals.append(enriched_meal)
-        else:
-            enriched_meals.append(m)
-    meal_plan['meals'] = enriched_meals
-
-    # Filter out side dishes
-    available_side_dishes = [meal for meal in all_meals if meal.get('is_side_dish')]
-
-    return render_template(
-        'add_side_dishes.html',
-        meal_plan=meal_plan, back_href=url_for('routes.meal_plan_result', meal_plan_id=meal_plan_id),
-        available_side_dishes=available_side_dishes, meal_plan_id=meal_plan_id,
-        random_subhead=random_subheader(), access_token=g.access_token)
-
-
-## ROUTE TO ASSIGN SIDE DISHES AND FINALIZE MEAL PLAN (API CALL) ✅
-@routes.route('/meal-plan/<int:meal_plan_id>/add-side-dishes-and-finalize', methods=['POST'])
-@login_required
-def add_side_dishes_and_finalize(meal_plan_id):
-    headers = {'Authorization': f"Bearer {g.access_token}"}
-
-    # STEP 1: Assign side dishes
-    side_dishes = {}
-
-    for key, value in request.form.items():
-        if key.startswith("side_dish_") and value.strip():
-            try:
-                int_value = int(value)
-                if int_value > 0:
-                    meal_id = key.replace("side_dish_", "")
-                    side_dishes[meal_id] = int_value
-            except ValueError:
-                continue
-
-    payload = {'side_dishes': side_dishes}
-    print(f"Sending side dish assignment payload: {payload}")
-
-    response = requests.put(
-        f'{API_BASE_URL}/meal_plan/{meal_plan_id}/add_side_dishes',
-        json=payload,
-        headers=headers
-    )
-
-    if response.status_code != 200:
-        print(f"❌ Failed to assign side dishes: {response.status_code} - {response.text}")
-        clear_and_flash("Failed to assign side dishes.")
-        return redirect(url_for('routes.add_side_dishes_page', meal_plan_id=meal_plan_id))
-
-    # Step 2: Finalize the meal plan (if not already finalized)
-    finalize_response = requests.put(f'{API_BASE_URL}/meal_plan/{meal_plan_id}/finalize', headers=headers)
-
-    if finalize_response.status_code == 200:
-        print("✅ Meal plan finalized.")
-        return redirect(url_for('routes.view_meal_plan', meal_plan_id=meal_plan_id, new='true'))
-    else:
-        # Check if plan is already finalized (which is ok for re-editing)
-        error_data = finalize_response.json()
-        if "already finalized" in error_data.get('error', '').lower():
-            print("✅ Meal plan already finalized - side dishes updated.")
-            return redirect(url_for('routes.view_meal_plan', meal_plan_id=meal_plan_id))
-        else:
-            print(f"❌ Failed to finalize meal plan: {finalize_response.status_code} - {finalize_response.text}")
-            clear_and_flash("Failed to finalize meal plan.")
-            return redirect(url_for('routes.add_side_dishes_page', meal_plan_id=meal_plan_id))
-
-
 ## ROUTE FOR DELETE MEAL PLAN (API CALL) ✅
 @routes.route('/meal-plan/<int:meal_plan_id>/delete', methods=['POST'])
 @login_required
@@ -2777,6 +2453,31 @@ def _api_headers():
     return {'Authorization': f"Bearer {g.access_token}"}
 
 
+@routes.route('/meals/week/side/<int:row_id>', methods=['POST'])
+@login_required
+def meals_week_add_side(row_id):
+    if not request.form.get('meal_id'):
+        return jsonify({'error': "Pick a meal from the list."}), 400
+    try:
+        res = requests.post(f"{API_BASE_URL}/meals/schedule/{row_id}/sides", headers=_api_headers(), timeout=15,
+                            json={'meal_id': request.form.get('meal_id')})
+        body = res.json()
+    except (requests.RequestException, ValueError):
+        return jsonify({'error': "Could not add that side right now."}), 502
+    return jsonify(body), (201 if res.status_code == 201 else 400)
+
+
+@routes.route('/meals/week/side/<int:row_id>/remove/<int:meal_id>', methods=['POST'])
+@login_required
+def meals_week_remove_side(row_id, meal_id):
+    try:
+        res = requests.delete(f"{API_BASE_URL}/meals/schedule/{row_id}/sides/{meal_id}", headers=_api_headers(), timeout=15)
+        ok = res.status_code == 200
+    except requests.RequestException:
+        ok = False
+    return jsonify({'ok': ok}), (200 if ok else 502)
+
+
 def _load_templates():
     try:
         res = requests.get(f"{API_BASE_URL}/week_templates", headers=_api_headers(), timeout=15)
@@ -2849,13 +2550,65 @@ def meals_week_apply():
     days = [{'iso': (start + timedelta(days=n)).isoformat(), 'label': (start + timedelta(days=n)).strftime('%a'),
              'text': (start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
     proposed = [{'meal_id': i['meal_id'], 'title': i['title'], 'slot': i['slot'] or 'Dinner', 'label': i.get('label') or '',
-                 'side_dish_id': i.get('side_dish_id'), 'day': days[i['day_offset']]['iso']}
+                 'sides': i.get('sides') or [], 'day': days[i['day_offset']]['iso']}
                 for i in tpl.get('items', []) if 0 <= i['day_offset'] < 7]
     existing_rows = [{'id': e['id'], 'meal_id': e['meal_id'], 'title': e['title'], 'slot': e.get('meal_type') or 'Dinner',
-                      'label': e.get('label') or '', 'day': e['date']} for e in existing]
+                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or []} for e in existing]
     return render_template('meals_week_apply.html', tpl_name=tpl['name'], days=days, start=start.isoformat(),
-                           proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS,
+                           proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS, mode='week',
                            range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}")
+
+
+@routes.route('/meals/week/pick', methods=['GET'])
+@login_required
+def meals_week_pick():
+    """Random picks shown as a list on the review screen. Nothing is saved until the person assigns days and confirms."""
+    from datetime import timedelta
+    try:
+        start = _week_start(datetime.strptime(request.args.get('start', ''), '%Y-%m-%d').date())
+    except ValueError:
+        start = _week_start(_today())
+    end = start + timedelta(days=6)
+    slot = request.args.get('slot') if request.args.get('slot') in WEEK_SLOTS else 'Dinner'
+    try:
+        count = max(1, min(int(request.args.get('count', 5)), 14))
+        pres = requests.get(f"{API_BASE_URL}/meals/suggest", params={'count': count, 'slot': slot},
+                            headers=_api_headers(), timeout=15)
+        sres = requests.get(f"{API_BASE_URL}/schedule", params={'start': start.isoformat(), 'end': end.isoformat()},
+                            headers=_api_headers(), timeout=15)
+    except (requests.RequestException, ValueError):
+        clear_and_flash("Could not pick meals right now.", "error")
+        return redirect(_week_url(start.isoformat()))
+    picks = pres.json().get('meals', []) if pres.status_code == 200 else []
+    if not picks:
+        clear_and_flash("No meals to pick from yet. Add some meals first.", "error")
+        return redirect(_week_url(start.isoformat()))
+    existing = [i for i in (sres.json().get('items', []) if sres.status_code == 200 else []) if i['type'] == 'meal']
+    days = [{'iso': (start + timedelta(days=n)).isoformat(), 'label': (start + timedelta(days=n)).strftime('%a'),
+             'text': (start + timedelta(days=n)).strftime('%b %-d')} for n in range(7)]
+    proposed = [{'meal_id': m['id'], 'title': m['title'], 'slot': slot, 'label': '', 'sides': [], 'day': ''} for m in picks]
+    existing_rows = [{'id': e['id'], 'meal_id': e['meal_id'], 'title': e['title'], 'slot': e.get('meal_type') or 'Dinner',
+                      'label': e.get('label') or '', 'day': e['date'], 'sides': e.get('sides') or []} for e in existing]
+    return render_template('meals_week_apply.html', tpl_name='Random picks', days=days, start=start.isoformat(),
+                           proposed=proposed, existing=existing_rows, slots=WEEK_SLOTS, mode='pick',
+                           range_text=f"{start.strftime('%b %-d')} – {end.strftime('%b %-d')}")
+
+
+@routes.route('/meals/week/pick/one', methods=['GET'])
+@login_required
+def meals_week_pick_one():
+    """One replacement pick for the review screen's re-roll button."""
+    slot = request.args.get('slot') if request.args.get('slot') in WEEK_SLOTS else 'Dinner'
+    exclude = ','.join(x for x in request.args.get('exclude', '').split(',') if x.strip().isdigit())
+    try:
+        res = requests.get(f"{API_BASE_URL}/meals/suggest", params={'count': 1, 'slot': slot, 'exclude': exclude},
+                           headers=_api_headers(), timeout=15)
+        picks = res.json().get('meals', []) if res.status_code == 200 else []
+    except (requests.RequestException, ValueError):
+        picks = []
+    if not picks:
+        return jsonify({'error': 'No other meals to pick from.'}), 404
+    return jsonify(picks[0]), 200
 
 
 @routes.route('/meals/week/apply', methods=['POST'])
@@ -2863,7 +2616,7 @@ def meals_week_apply():
 def meals_week_apply_confirm():
     data = request.get_json(silent=True) or {}
     items = [{'date': i.get('day'), 'meal_id': i.get('meal_id'), 'slot': i.get('slot'), 'label': i.get('label') or '',
-              'side_dish_id': i.get('side_dish_id')} for i in data.get('items', [])]
+              'sides': [x.get('meal_id') for x in i.get('sides') or []]} for i in data.get('items', [])]
     if not items:
         return jsonify({'error': 'Nothing to add.'}), 400
     try:

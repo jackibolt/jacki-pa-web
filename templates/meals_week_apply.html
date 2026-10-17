@@ -13,7 +13,8 @@
 
   <div style="font-size: 13px; color: #5a7364; margin-bottom: 12px;">
     <span style="display:inline-block;border:1px dashed #2f8f5b;border-radius:6px;padding:0 6px;color:#2f8f5b;font-weight:700;font-size:11px;">NEW</span>
-    dishes come from {{ tpl_name }}. Move or drop them. Dishes already on your week can be removed with ×.
+    {% if mode == 'pick' %}dishes are random picks. Choose a day for each, drop any you don't want, or re-roll with ↻.{% else %}dishes come from {{ tpl_name }}. Move or drop them.{% endif %}
+    Dishes already on your week can be removed with ×.
   </div>
 
   <div id="ap-days" style="display: flex; flex-direction: column; gap: 10px;"></div>
@@ -25,7 +26,7 @@
   </div>
 </div>
 
-<script id="ap-data" type="application/json">{{ {'days': days, 'proposed': proposed, 'existing': existing, 'slots': slots, 'start': start, 'name': tpl_name}|tojson }}</script>
+<script id="ap-data" type="application/json">{{ {'days': days, 'proposed': proposed, 'existing': existing, 'slots': slots, 'start': start, 'name': tpl_name, 'mode': mode}|tojson }}</script>
 <script>
   (function () {
     var D = JSON.parse(document.getElementById('ap-data').textContent);
@@ -52,7 +53,9 @@
 
     function render() {
       root.innerHTML = '';
-      D.days.forEach(function (day) {
+      var cards = D.days.slice();
+      if (D.proposed.some(function (p) { return !p.day; })) { cards.unshift({iso: '', label: 'Pick a day', text: 'for these'}); }
+      cards.forEach(function (day) {
         var card = el('div', 'border:1px solid #d5e4da;border-radius:12px;padding:12px 16px;background:#fff;color:#1a3a2a;');
         var head = el('div', 'display:flex;align-items:baseline;gap:8px;margin-bottom:4px;');
         head.appendChild(el('div', 'font-size:16px;font-weight:700;', day.label));
@@ -74,6 +77,8 @@
           row.appendChild(el('div', 'flex:none;width:84px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:' + (tones[r.slot] || '#7a8f82') + ';', showSlot ? r.slot : ''));
           var main = el('div', 'flex:1;min-width:0;font-size:15px;');
           main.appendChild(document.createTextNode(r.title + tag(r.label)));
+          var sd = (r.sides || []).map(function (x) { return x.title; });
+          if (sd.length) { main.appendChild(el('div', 'font-size:13px;opacity:.8;', '+ ' + sd.join(', '))); }
           if (it.kind === 'new') {
             var b = el('span', 'margin-left:6px;border:1px dashed #2f8f5b;border-radius:6px;padding:0 5px;font-size:10px;font-weight:700;', 'NEW');
             main.appendChild(b);
@@ -84,12 +89,14 @@
           if (it.kind === 'new') {
             var sel = el('select', 'flex:none;width:112px;min-width:0;box-sizing:border-box;font-size:13px;padding:3px;');
             sel.setAttribute('aria-label', 'Move ' + r.title + ' to another day');
+            if (!r.day) { var blank = document.createElement('option'); blank.value = ''; blank.textContent = 'Choose a day…'; blank.selected = true; sel.appendChild(blank); }
             D.days.forEach(function (d) {
               var o = document.createElement('option'); o.value = d.iso; o.textContent = d.label + ' ' + d.text; if (d.iso === r.day) { o.selected = true; }
               sel.appendChild(o);
             });
             sel.addEventListener('change', function () { r.day = sel.value; render(); });
             row.appendChild(sel);
+            if (D.mode === 'pick') { row.appendChild(rerollBtn(r)); }
             row.appendChild(xbtn('Drop ' + r.title, function () { D.proposed = D.proposed.filter(function (p) { return p.uid !== r.uid; }); render(); }));
           } else {
             row.appendChild(xbtn('Remove ' + r.title + ' from this day', function () { removeExisting(r); }));
@@ -103,6 +110,20 @@
       document.getElementById('ap-go').disabled = !D.proposed.length;
     }
 
+    function rerollBtn(r) {
+      var b = el('button', 'background:none;border:0;cursor:pointer;font-size:16px;line-height:1;padding:0 4px;color:inherit;opacity:.6;', '↻');
+      b.type = 'button'; b.title = 'Pick a different meal'; b.setAttribute('aria-label', 'Re-roll ' + r.title);
+      b.addEventListener('click', function () {
+        var err = document.getElementById('ap-err'); err.textContent = '';
+        var skip = D.proposed.concat(D.existing).map(function (x) { return x.meal_id; }).join(',');
+        fetch('/meals/week/pick/one?slot=' + encodeURIComponent(r.slot) + '&exclude=' + skip, {headers: {'X-Requested-With': 'fetch'}})
+          .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); })
+          .then(function (o) { if (o.ok) { r.meal_id = o.j.id; r.title = o.j.title; r.sides = []; render(); } else { err.textContent = o.j.error || 'No other meals to pick from.'; } })
+          .catch(function () { err.textContent = 'Could not re-roll right now.'; });
+      });
+      return b;
+    }
+
     function removeExisting(r) {
       var err = document.getElementById('ap-err'); err.textContent = '';
       fetch('/meals/week/remove/' + r.id, {method: 'POST', headers: {'X-Requested-With': 'fetch'}})
@@ -114,12 +135,14 @@
     }
 
     document.getElementById('ap-go').addEventListener('click', function () {
-      var btn = this, err = document.getElementById('ap-err'); err.textContent = ''; btn.disabled = true;
+      var btn = this, err = document.getElementById('ap-err'); err.textContent = '';
+      if (D.proposed.some(function (p) { return !p.day; })) { err.textContent = 'Choose a day for each dish, or drop it.'; return; }
+      btn.disabled = true;
       var d = new Date(D.days[0].iso + 'T00:00:00');
       var name = D.name + ' · ' + d.toLocaleDateString('en-US', {month: 'short', day: 'numeric'});
       fetch(window.location.pathname, {method: 'POST', headers: {'Content-Type': 'application/json', 'X-Requested-With': 'fetch'},
         body: JSON.stringify({start: D.start, name: name, items: D.proposed.map(function (p) {
-          return {day: p.day, meal_id: p.meal_id, slot: p.slot, label: p.label, side_dish_id: p.side_dish_id};
+          return {day: p.day, meal_id: p.meal_id, slot: p.slot, label: p.label, sides: p.sides || []};
         })})})
         .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); })
         .then(function (o) { if (o.ok) { window.location = o.j.redirect; } else { err.textContent = o.j.error || 'Could not add those meals.'; btn.disabled = false; } })

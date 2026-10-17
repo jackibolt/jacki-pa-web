@@ -17,6 +17,7 @@
 
   <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;">
     <button type="button" id="wk-pick-btn" class="btn btn-primary" style="width: auto;">Add a standard week</button>
+    <button type="button" id="wk-rand-btn" class="btn btn-secondary" style="width: auto;">Pick meals for me</button>
     {% if has_meals %}<button type="button" id="wk-save-btn" class="btn btn-secondary" style="width: auto;">Save this week as…</button>{% endif %}
   </div>
 
@@ -34,7 +35,15 @@
         {% for d in row.dishes %}
         <div style="display: flex; align-items: baseline; gap: 12px; padding: 2px 0;">
           <div style="flex: none; width: 92px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: {{ tone[1] if day.is_today else tone[0] }};">{{ row.title if loop.first else '' }}</div>
-          <a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="flex: 1; min-width: 0; font-size: 15px; color: inherit; text-decoration: none;">{{ d.title }}{% if d.label %} <span style="font-size: 11px; opacity: .6; border: 1px solid currentColor; border-radius: 8px; padding: 0 6px; margin-left: 4px; white-space: nowrap;">{{ d.label }}</span>{% endif %}</a>
+          <div style="flex: 1; min-width: 0;">
+            <a href="{{ url_for('routes.meal_detail', meal_id=d.meal_id) }}" style="font-size: 15px; color: inherit; text-decoration: none;">{{ d.title }}{% if d.label %} <span style="font-size: 11px; opacity: .6; border: 1px solid currentColor; border-radius: 8px; padding: 0 6px; margin-left: 4px; white-space: nowrap;">{{ d.label }}</span>{% endif %}</a>
+            <div class="wk-sides" data-row="{{ d.id }}" style="display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; font-size: 13px; opacity: .85;">
+              {% for sd in d.sides %}
+              <span class="wk-side" data-meal="{{ sd.meal_id }}">+ <a href="{{ url_for('routes.meal_detail', meal_id=sd.meal_id) }}" style="color: inherit; text-decoration: none;">{{ sd.title }}</a><button type="button" class="wk-side-x wk-x" title="Remove {{ sd.title }}" aria-label="Remove side {{ sd.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 3px;">×</button></span>
+              {% endfor %}
+              <button type="button" class="wk-side-add" data-row="{{ d.id }}" data-title="{{ d.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 12px; opacity: .4; padding: 0;">+ side</button>
+            </div>
+          </div>
           <form action="{{ url_for('routes.meals_week_remove', row_id=d.id) }}" method="POST" style="margin: 0;">
             <input type="hidden" name="start" value="{{ start }}">
             <button type="submit" class="wk-x" title="Remove" aria-label="Remove {{ d.title }}" style="background: none; border: 0; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px;">×</button>
@@ -132,11 +141,41 @@
       <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Close</button>
     </div>
   </dialog>
+  <dialog id="wk-rand-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 360px);">
+    <form action="{{ url_for('routes.meals_week_pick') }}" method="GET" style="margin: 0;">
+      <h2 style="margin: 0 0 6px; font-size: 18px;">Pick meals for me</h2>
+      <div style="font-size: 13px; color: #7a8f82; margin-bottom: 12px;">You'll get a list and choose the days. Nothing is added until you confirm.</div>
+      <input type="hidden" name="start" value="{{ start }}">
+      <div style="display: flex; gap: 10px;">
+        <label style="flex: 1; font-size: 13px; color: #5a7364;">How many
+          <input type="number" name="count" value="5" min="1" max="14" style="width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px;"></label>
+        <label style="flex: 1; font-size: 13px; color: #5a7364;">For
+          <select name="slot" style="width: 100%; box-sizing: border-box; padding: 8px; margin-top: 4px;">
+            {% for kind in slots %}<option value="{{ kind }}" {{ 'selected' if kind == 'Dinner' }}>{{ kind }}</option>{% endfor %}
+          </select></label>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px;">
+        <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="width: auto;">Pick</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="wk-side-dialog" style="border: 1px solid #d5e4da; border-radius: 14px; padding: 20px; width: min(92vw, 380px);">
+    <h2 id="wk-side-title" style="margin: 0 0 8px; font-size: 18px;">Add a side</h2>
+    <input type="text" id="wk-side-input" list="wk-meals" placeholder="Start typing a meal name…" autocomplete="off" style="width: 100%; box-sizing: border-box; padding: 8px;">
+    <div id="wk-side-err" style="min-height: 16px; font-size: 13px; color: #b03a4e; margin-top: 4px;"></div>
+    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px;">
+      <button type="button" class="btn btn-secondary wk-close" style="width: auto;">Done</button>
+      <button type="button" id="wk-side-go" class="btn btn-primary" style="width: auto;">Add</button>
+    </div>
+  </dialog>
 </div>
+
 
 <script>
   (function () {
-    [['wk-pick-btn', 'wk-pick-dialog'], ['wk-save-btn', 'wk-save-dialog']].forEach(function (p) {
+    [['wk-pick-btn', 'wk-pick-dialog'], ['wk-rand-btn', 'wk-rand-dialog'], ['wk-save-btn', 'wk-save-dialog']].forEach(function (p) {
       var b = document.getElementById(p[0]), d = document.getElementById(p[1]);
       if (b && d) { b.addEventListener('click', function () { d.showModal(); }); }
     });
@@ -199,4 +238,48 @@
     document.getElementById('wk-cancel').addEventListener('click', function () { dlg.close(); });
   })();
 </script>
+<script>
+  (function () {
+    var dlg = document.getElementById('wk-side-dialog'), input = document.getElementById('wk-side-input'),
+        err = document.getElementById('wk-side-err'), row = null, added = false;
+    dlg.addEventListener('close', function () { if (added) { window.location.reload(); } });
+    function mealId(name) {
+      var id = null;
+      document.querySelectorAll('#wk-meals option').forEach(function (o) {
+        if (id === null && o.value.toLowerCase() === name.trim().toLowerCase()) { id = o.dataset.id; }
+      });
+      return id;
+    }
+    document.querySelectorAll('.wk-side-add').forEach(function (b) {
+      b.addEventListener('click', function () {
+        row = b.dataset.row; input.value = ''; err.textContent = ''; err.style.color = '#b03a4e';
+        document.getElementById('wk-side-title').textContent = 'Add a side · ' + b.dataset.title;
+        dlg.showModal(); input.focus();
+      });
+    });
+    function add() {
+      var id = mealId(input.value);
+      err.style.color = '#b03a4e';
+      if (!id) { err.textContent = 'Pick a meal from the list.'; return; }
+      var fd = new FormData(); fd.append('meal_id', id);
+      fetch('/meals/week/side/' + row, {method: 'POST', body: fd, headers: {'X-Requested-With': 'fetch'}})
+        .then(function (res) { return res.json().then(function (j) { return {ok: res.ok, j: j}; }); })
+        .then(function (o) {
+          if (!o.ok) { err.style.color = '#b03a4e'; err.textContent = o.j.error || 'Could not add that side.'; return; }
+          added = true; err.style.color = '#2f8f5b'; err.textContent = 'Added ' + o.j.title + '. Add another or press Done.'; input.value = '';
+        })
+        .catch(function () { err.textContent = 'Could not add that side right now.'; });
+    }
+    document.getElementById('wk-side-go').addEventListener('click', add);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+    document.querySelectorAll('.wk-side-x').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var chip = b.closest('.wk-side'), r = b.closest('.wk-sides').dataset.row;
+        fetch('/meals/week/side/' + r + '/remove/' + chip.dataset.meal, {method: 'POST', headers: {'X-Requested-With': 'fetch'}})
+          .then(function (res) { if (res.ok) { chip.remove(); } });
+      });
+    });
+  })();
+</script>
+
 {% endblock %}
